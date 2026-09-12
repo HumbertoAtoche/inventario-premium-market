@@ -5,8 +5,10 @@ import hashlib
 import io
 import re
 import html
+import base64
 from datetime import datetime
 from google.oauth2.service_account import Credentials
+import streamlit.components.v1 as components
 
 # =========================================================
 # TIENDAS PREMIUM EIRL — INVENTARIO
@@ -113,10 +115,16 @@ st.markdown("""
     .kpi-card {
         background: white;
         border: 1px solid var(--border);
+        border-top: 3px solid var(--red);
         border-radius: 16px;
         padding: 16px 17px;
         min-height: 105px;
         box-shadow: 0 4px 15px rgba(17,24,39,.045);
+        transition: transform .15s ease, box-shadow .15s ease;
+    }
+    .kpi-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 22px rgba(17,24,39,.08);
     }
     .kpi-label { color: var(--muted); font-size: .76rem; font-weight: 700; text-transform: uppercase; letter-spacing: .02em; }
     .kpi-value { color: var(--text); font-size: 1.55rem; font-weight: 850; margin-top: 5px; }
@@ -243,6 +251,16 @@ def limpiar_numero(valor, default=0):
         return default
 
 
+def exportar_excel(hojas: dict):
+    """Genera un archivo .xlsx en memoria a partir de un diccionario {nombre_hoja: DataFrame}."""
+    buffer = io.BytesIO()
+    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+        for nombre, df in hojas.items():
+            df.to_excel(writer, sheet_name=nombre[:31], index=False)
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
 def formato_soles(valor):
     try:
         return f"S/ {float(valor):,.2f}"
@@ -262,8 +280,53 @@ def generar_id_usuario():
     return datetime.now().strftime("USR-%Y%m%d%H%M%S%f")
 
 
+def saludo_actual():
+    hora = datetime.now().hour
+    if hora < 12:
+        return "Buenos días"
+    if hora < 19:
+        return "Buenas tardes"
+    return "Buenas noches"
+
+
 def safe_text(valor):
     return html.escape(str(valor))
+
+
+@st.cache_data(show_spinner=False)
+def _beep_wav_base64(frecuencia=1500, duracion_ms=110, volumen=0.35):
+    """Genera un beep corto en WAV (sin dependencias externas) y lo devuelve en Base64."""
+    import struct
+    import wave
+    import math
+
+    tasa = 22050
+    n_muestras = int(tasa * duracion_ms / 1000)
+    buffer = io.BytesIO()
+    with wave.open(buffer, "wb") as wav:
+        wav.setnchannels(1)
+        wav.setsampwidth(2)
+        wav.setframerate(tasa)
+        for i in range(n_muestras):
+            valor = int(volumen * 32767 * math.sin(2 * math.pi * frecuencia * i / tasa))
+            wav.writeframes(struct.pack("<h", valor))
+    return base64.b64encode(buffer.getvalue()).decode("ascii")
+
+
+def sonido_confirmacion():
+    """Reproduce un beep + vibración corta al confirmar un escaneo exitoso."""
+    audio_b64 = _beep_wav_base64()
+    components.html(
+        f"""
+        <audio id="beep_ok" autoplay>
+            <source src="data:audio/wav;base64,{audio_b64}" type="audio/wav">
+        </audio>
+        <script>
+            try {{ if (navigator.vibrate) {{ navigator.vibrate(70); }} }} catch (e) {{}}
+        </script>
+        """,
+        height=0,
+    )
 
 
 def normalizar_df(df, headers):
@@ -728,7 +791,7 @@ def pantalla_login():
 # =========================================================
 
 def pantalla_inicio():
-    header("Dashboard de Inventario", f"Bienvenido, {st.session_state.usuario.get('NombreCompleto', '')}")
+    header("Dashboard de Inventario", f"{saludo_actual()}, {st.session_state.usuario.get('NombreCompleto', '')} 👋")
 
     c_refresh, c_info = st.columns([1, 3])
     with c_refresh:
@@ -853,9 +916,21 @@ def pantalla_sesion():
 # SCANNER
 # =========================================================
 
-def pantalla_scanner():
+def pantalla_scanner(sesion=None):
     header("Escanear producto", "Usa la cámara del celular o ingresa el código manualmente")
-    st.markdown("<div class='mobile-note'>📱 En celular, permite el acceso a la cámara. El escáner funciona mejor usando HTTPS.</div>", unsafe_allow_html=True)
+
+    c_mode, c_stats = st.columns([2, 1])
+    with c_mode:
+        st.markdown(
+            "<div class='mobile-note'>📱 Permite el acceso a la cámara. Apunta al código de barras "
+            "dentro del recuadro — el sonido y la vibración confirman una lectura correcta.</div>",
+            unsafe_allow_html=True,
+        )
+    if sesion:
+        conteos = cargar_conteos()
+        n = int((conteos["IdSesion"].astype(str) == str(sesion["IdSesion"])).sum()) if not conteos.empty else 0
+        with c_stats:
+            kpi("Contados", f"{n:,}", "en esta sesión")
 
     try:
         from streamlit_qrcode_scanner import qrcode_scanner
@@ -865,25 +940,52 @@ def pantalla_scanner():
             if codigo and codigo != st.session_state.get("ultimo_codigo_scan", ""):
                 st.session_state.ultimo_codigo_scan = codigo
                 st.session_state.codigo_pendiente = codigo
+                sonido_confirmacion()
                 st.rerun()
     except ImportError:
         st.warning("El escáner no está instalado. Agrega `streamlit-qrcode-scanner` a requirements.txt.")
     except Exception as exc:
         st.warning("No se pudo iniciar la cámara. Puedes utilizar la búsqueda manual.")
-        with st.expander("Detalle técnico"):
+        with st.expander("💡 ¿Problemas con la cámara?"):
+            st.markdown(
+                "- Asegúrate de estar usando **HTTPS** (obligatorio para acceder a la cámara).\n"
+                "- Revisa que el navegador tenga **permiso de cámara** habilitado para este sitio.\n"
+                "- En iPhone, usa **Safari**; en Android, **Chrome** funciona mejor.\n"
+                "- Si la cámara está siendo usada por otra app, ciérrala e intenta de nuevo."
+            )
             st.code(str(exc))
 
     st.divider()
-    codigo_manual = st.text_input("Código de barras / código de producto", key="codigo_manual", placeholder="Escanea o escribe el código")
-    if st.button("🔎 Buscar código", use_container_width=True):
-        if codigo_manual.strip():
-            st.session_state.codigo_pendiente = limpiar_codigo(codigo_manual)
-            st.rerun()
+    with st.form("form_codigo_manual", clear_on_submit=True):
+        codigo_manual = st.text_input(
+            "Código de barras / código de producto",
+            placeholder="Escanea o escribe el código y presiona Enter",
+        )
+        buscar = st.form_submit_button("🔎 Buscar código", use_container_width=True)
+    if buscar and codigo_manual.strip():
+        st.session_state.codigo_pendiente = limpiar_codigo(codigo_manual)
+        st.rerun()
 
     if st.button("🔎 No puedo escanear — buscar por nombre", use_container_width=True):
         st.session_state.modo_inventario = "busqueda"
         st.session_state.codigo_pendiente = ""
         st.rerun()
+
+    if sesion:
+        conteos = cargar_conteos()
+        if not conteos.empty:
+            propios = conteos[conteos["IdSesion"].astype(str) == str(sesion["IdSesion"])].tail(5).iloc[::-1]
+            if not propios.empty:
+                st.markdown("<div class='section-title'>🕒 Últimos escaneados</div>", unsafe_allow_html=True)
+                for _, fila in propios.iterrows():
+                    st.markdown(
+                        f"<div class='card' style='padding:10px 14px;margin-bottom:8px;display:flex;"
+                        f"justify-content:space-between;align-items:center;'>"
+                        f"<span><b>{safe_text(fila['Producto'])}</b> "
+                        f"<span style='color:#6b7280;font-size:.78rem'>({safe_text(fila['FechaHora'])})</span></span>"
+                        f"{badge(fila['TipoDiferencia'])}</div>",
+                        unsafe_allow_html=True,
+                    )
 
 # =========================================================
 # PRODUCTO
@@ -951,6 +1053,7 @@ def pantalla_producto(producto, sesion):
             try:
                 guardar_conteo(sesion, st.session_state.usuario, producto, fisico, metodo, observacion)
                 st.success(f"Conteo guardado: {tipo}")
+                sonido_confirmacion()
                 st.session_state.producto_pendiente = None
                 st.session_state.codigo_pendiente = ""
                 st.session_state.ultimo_codigo_scan = ""
@@ -970,7 +1073,21 @@ def pantalla_producto(producto, sesion):
 def pantalla_busqueda(sesion):
     header("Buscar producto", "Encuentra el producto por nombre, código, descripción o marca")
     texto = st.text_input("Buscar", placeholder="Ej. Inca Kola, 775..., Coca...")
+
+    inv_completo = cargar_inventario()
+    c1, c2 = st.columns(2)
+    with c1:
+        categorias = ["Todas"] + sorted([c for c in inv_completo["Categoria"].unique() if c]) if not inv_completo.empty else ["Todas"]
+        cat_sel = st.selectbox("Filtrar por categoría", categorias)
+    with c2:
+        sucursales = ["Todas"] + sorted([s for s in inv_completo["Sucursal"].unique() if s]) if not inv_completo.empty else ["Todas"]
+        suc_sel = st.selectbox("Filtrar por sucursal", sucursales)
+
     df = buscar_productos(texto)
+    if cat_sel != "Todas":
+        df = df[df["Categoria"] == cat_sel]
+    if suc_sel != "Todas":
+        df = df[df["Sucursal"] == suc_sel]
 
     if df.empty:
         st.info("No se encontraron productos.")
@@ -1016,6 +1133,7 @@ def pantalla_inventario():
         f"<div class='mobile-note'>🧾 <b>{safe_text(sesion['NombreSesion'])}</b> · {safe_text(sesion['Sucursal'])} · {contados:,}/{total:,} productos · {porcentaje:.1f}%</div>",
         unsafe_allow_html=True,
     )
+    st.progress(min(porcentaje / 100, 1.0))
 
     if st.session_state.get("producto_pendiente"):
         pantalla_producto(st.session_state.producto_pendiente, sesion)
@@ -1042,7 +1160,7 @@ def pantalla_inventario():
     if modo == "busqueda":
         pantalla_busqueda(sesion)
     else:
-        pantalla_scanner()
+        pantalla_scanner(sesion)
 
 # =========================================================
 # RESULTADOS / DASHBOARD EJECUTIVO
@@ -1106,6 +1224,19 @@ def pantalla_resultados():
                 "Sobrante": st.column_config.NumberColumn(format="S/ %.2f"),
             })
 
+    if not dc.empty:
+        st.markdown("<div class='section-title'>📊 Valor de faltantes por categoría</div>", unsafe_allow_html=True)
+        por_categoria = (
+            dc[dc["TipoDiferencia"] == "FALTANTE"]
+            .groupby("Categoria")["ValorFaltante"]
+            .sum()
+            .sort_values(ascending=False)
+        )
+        if por_categoria.empty:
+            st.info("No hay faltantes registrados por categoría en esta sesión.")
+        else:
+            st.bar_chart(por_categoria)
+
     st.markdown("<div class='section-title'>📋 Detalle completo</div>", unsafe_allow_html=True)
     if not dc.empty:
         detalle = dc.copy()
@@ -1121,13 +1252,30 @@ def pantalla_resultados():
         )
 
     resumen_csv = pd.DataFrame([resumen]).to_csv(index=False).encode("utf-8-sig")
-    st.download_button(
-        "📥 Descargar resumen CSV",
-        data=resumen_csv,
-        file_name=f"resumen_{seleccionado}.csv",
-        mime="text/csv",
-        use_container_width=True,
-    )
+    c1, c2 = st.columns(2)
+    with c1:
+        st.download_button(
+            "📥 Descargar resumen CSV",
+            data=resumen_csv,
+            file_name=f"resumen_{seleccionado}.csv",
+            mime="text/csv",
+            use_container_width=True,
+        )
+    with c2:
+        try:
+            excel_bytes = exportar_excel({
+                "Detalle": dc if not dc.empty else pd.DataFrame(columns=HEADERS_CONTEO),
+                "Resumen": pd.DataFrame([resumen]),
+            })
+            st.download_button(
+                "📊 Descargar todo en Excel",
+                data=excel_bytes,
+                file_name=f"inventario_{seleccionado}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+            )
+        except Exception:
+            st.caption("Instala `openpyxl` en requirements.txt para habilitar la exportación a Excel.")
 
 # =========================================================
 # ADMINISTRACIÓN
@@ -1179,6 +1327,26 @@ def pantalla_admin():
         with k3: kpi("Valor", formato_soles((inv["StockSistema"] * inv["CostoUnitario"]).sum() if not inv.empty else 0), "a costo")
         if not inv.empty:
             st.dataframe(inv, use_container_width=True, hide_index=True)
+            colcsv, colxlsx = st.columns(2)
+            with colcsv:
+                st.download_button(
+                    "📥 Exportar inventario (CSV)",
+                    data=inv.to_csv(index=False).encode("utf-8-sig"),
+                    file_name="inventario_completo.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                )
+            with colxlsx:
+                try:
+                    st.download_button(
+                        "📊 Exportar inventario (Excel)",
+                        data=exportar_excel({"Inventario": inv}),
+                        file_name="inventario_completo.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True,
+                    )
+                except Exception:
+                    st.caption("Instala `openpyxl` para exportar a Excel.")
 
     with tab3:
         sesiones = cargar_sesiones()
