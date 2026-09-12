@@ -17,19 +17,22 @@ import streamlit.components.v1 as components
 # app.py — versión optimizada para Google Sheets + móvil
 # =========================================================
 
-# 👉 LOGO DE LA EMPRESA
-# Archivo real: assets/logo (2).png   (carpeta "assets" al mismo nivel que este app.py, en tu repo de GitHub)
-# Streamlit Cloud clona todo el repositorio, así que apenas subas el archivo y hagas commit,
-# la app lo encuentra automáticamente. Si algún día cambias de nombre/carpeta, solo edita LOGO_PATH.
+# 👉 LOGOS DE LA EMPRESA
+# LOGO_PATH   -> se muestra DENTRO de la app (login y barra lateral): assets/logo (2).png
+# FAVICON_PATH -> ícono de la pestaña del navegador (favicon): assets/logo (3).png
+# Ambos van en la carpeta "assets", al mismo nivel que este app.py, en tu repo de GitHub.
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOGO_PATH = os.path.join(BASE_DIR, "assets", "logo (2).png")
 LOGO_DISPONIBLE = os.path.isfile(LOGO_PATH)
 LOGO_MIME = mimetypes.guess_type(LOGO_PATH)[0] or "image/png"
 
+FAVICON_PATH = os.path.join(BASE_DIR, "assets", "logo (3).png")
+FAVICON_DISPONIBLE = os.path.isfile(FAVICON_PATH)
+
 try:
     st.set_page_config(
         page_title="Inventario | Tiendas Premium",
-        page_icon=LOGO_PATH if LOGO_DISPONIBLE else "📦",
+        page_icon=FAVICON_PATH if FAVICON_DISPONIBLE else (LOGO_PATH if LOGO_DISPONIBLE else "📦"),
         layout="wide",
         initial_sidebar_state="expanded",
     )
@@ -259,7 +262,7 @@ st.markdown("""
         .price-hero .price-value { font-size: 2.3rem; }
     }
 
-    .login-wrap {
+    .st-key-login_card {
         max-width: 460px;
         margin: 6vh auto 0;
         background: white;
@@ -897,36 +900,37 @@ def pantalla_login():
         footer()
         return
 
-    st.markdown("<div class='login-wrap'>", unsafe_allow_html=True)
-    st.markdown(f"<div class='login-logo'>{logo_tag(72)}</div>", unsafe_allow_html=True)
-    st.markdown("<div class='login-title'>Tiendas Premium</div>", unsafe_allow_html=True)
-    st.markdown("<div class='login-subtitle'>Control de Inventario</div>", unsafe_allow_html=True)
-    with st.form("login_form"):
-        usuario = st.text_input("Usuario", placeholder="Ingresa tu usuario")
-        password = st.text_input("Contraseña", type="password", placeholder="Ingresa tu contraseña")
-        entrar = st.form_submit_button("Ingresar", use_container_width=True)
+    with st.container(key="login_card"):
+        st.markdown(f"<div class='login-logo'>{logo_tag(72)}</div>", unsafe_allow_html=True)
+        st.markdown("<div class='login-title'>Tiendas Premium</div>", unsafe_allow_html=True)
+        st.markdown("<div class='login-subtitle'>Control de Inventario</div>", unsafe_allow_html=True)
 
-    if entrar:
-        try:
-            registro = autenticar(usuario, password)
-            if registro:
-                st.session_state.autenticado = True
-                st.session_state.usuario = registro
-                st.session_state.pagina = "Inicio"
-                st.session_state.codigo_pendiente = ""
-                st.session_state.producto_pendiente = None
-                st.session_state.modo_inventario = "scanner"
-                st.rerun()
-            else:
-                st.error("Usuario o contraseña incorrectos.")
-        except Exception as exc:
-            mostrar_error_google(exc, "inicio de sesión")
+        with st.form("login_form", border=False):
+            usuario = st.text_input("Usuario", placeholder="Ingresa tu usuario")
+            password = st.text_input("Contraseña", type="password", placeholder="Ingresa tu contraseña")
+            entrar = st.form_submit_button("Ingresar", type="primary", use_container_width=True)
 
-    st.markdown(
-        f"<div class='login-tag'>🔒 Acceso corporativo · {safe_text(COMPANY)}</div>",
-        unsafe_allow_html=True,
-    )
-    st.markdown("</div>", unsafe_allow_html=True)
+        if entrar:
+            try:
+                registro = autenticar(usuario, password)
+                if registro:
+                    st.session_state.autenticado = True
+                    st.session_state.usuario = registro
+                    st.session_state.pagina = "Inicio"
+                    st.session_state.codigo_pendiente = ""
+                    st.session_state.producto_pendiente = None
+                    st.session_state.modo_inventario = "scanner"
+                    st.rerun()
+                else:
+                    st.error("Usuario o contraseña incorrectos.")
+            except Exception as exc:
+                mostrar_error_google(exc, "inicio de sesión")
+
+        st.markdown(
+            f"<div class='login-tag'>🔒 Acceso corporativo · {safe_text(COMPANY)}</div>",
+            unsafe_allow_html=True,
+        )
+
     footer()
 
 # =========================================================
