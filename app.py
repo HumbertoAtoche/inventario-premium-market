@@ -15,12 +15,27 @@ import streamlit.components.v1 as components
 # app.py — versión optimizada para Google Sheets + móvil
 # =========================================================
 
-st.set_page_config(
-    page_title="Inventario | Tiendas Premium",
-    page_icon="📦",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
+# 👉 Reemplaza esta URL por el enlace "raw" de tu logo.jpg en GitHub.
+# Debe verse así (NO el link de la página de GitHub, sino el de contenido crudo):
+# https://raw.githubusercontent.com/TU_USUARIO/TU_REPOSITORIO/main/images/logo.jpg
+LOGO_URL = "https://raw.githubusercontent.com/TU_USUARIO/TU_REPOSITORIO/main/images/logo.jpg"
+
+try:
+    st.set_page_config(
+        page_title="Inventario | Tiendas Premium",
+        page_icon=LOGO_URL,
+        layout="wide",
+        initial_sidebar_state="expanded",
+    )
+except Exception:
+    # Si la URL del logo aún no es válida o no hay internet para cargarla,
+    # la app sigue funcionando con un ícono por defecto.
+    st.set_page_config(
+        page_title="Inventario | Tiendas Premium",
+        page_icon="📦",
+        layout="wide",
+        initial_sidebar_state="expanded",
+    )
 
 APP_NAME = "Tiendas Premium"
 COMPANY = "Tiendas Premium EIRL"
@@ -164,6 +179,36 @@ st.markdown("""
     .badge-abierta { background:#dbeafe; color:#1d4ed8; }
     .badge-cerrada { background:#f3f4f6; color:#4b5563; }
 
+    .price-hero {
+        background: linear-gradient(135deg, #1071b8 0%, #0a5488 100%);
+        color: white;
+        border-radius: 20px;
+        padding: 28px 22px;
+        text-align: center;
+        box-shadow: 0 10px 28px rgba(16,113,184,.25);
+        margin: 14px 0;
+    }
+    .price-hero .price-label { font-size: .85rem; font-weight: 700; text-transform: uppercase; opacity: .85; letter-spacing: .04em; }
+    .price-hero .price-value { font-size: 3rem; font-weight: 900; margin: 6px 0 2px; line-height: 1; }
+    .price-hero .price-sub { font-size: .88rem; opacity: .9; }
+
+    .price-info-grid { display:flex; gap:10px; flex-wrap:wrap; margin-top: 12px; }
+    .price-info-item {
+        flex: 1 1 120px;
+        background: white;
+        border: 1px solid var(--border);
+        border-radius: 13px;
+        padding: 11px 12px;
+        text-align: center;
+    }
+    .price-info-item .lbl { color: var(--muted); font-size: .7rem; font-weight: 700; text-transform: uppercase; }
+    .price-info-item .val { color: var(--text); font-size: 1.05rem; font-weight: 800; margin-top: 3px; }
+
+    @media (max-width: 768px) {
+        .price-hero { padding: 22px 16px; }
+        .price-hero .price-value { font-size: 2.3rem; }
+    }
+
     .login-wrap { max-width: 460px; margin: 7vh auto 0; }
     .login-logo { text-align:center; font-size: 3.3rem; margin-bottom: 5px; }
     .login-title { text-align:center; font-size:1.7rem; font-weight:900; color:#111827; }
@@ -291,6 +336,19 @@ def saludo_actual():
 
 def safe_text(valor):
     return html.escape(str(valor))
+
+
+def logo_tag(height=52, fallback_emoji="📦"):
+    """
+    Devuelve un <img> con el logo de la empresa. Si LOGO_URL todavía no es válida
+    o no carga, muestra automáticamente el emoji de respaldo (sin romper la UI).
+    """
+    return (
+        f'<img src="{LOGO_URL}" alt="logo" style="height:{height}px;max-width:100%;'
+        f'object-fit:contain;vertical-align:middle;" '
+        f'onerror="this.onerror=null;this.outerHTML=\'<span style=&quot;font-size:{height}px;'
+        f'line-height:1;&quot;>{fallback_emoji}</span>\';">'
+    )
 
 
 @st.cache_data(show_spinner=False)
@@ -758,7 +816,7 @@ def pantalla_login():
         return
 
     st.markdown("<div class='login-wrap'>", unsafe_allow_html=True)
-    st.markdown("<div class='login-logo'>📦</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='login-logo'>{logo_tag(72)}</div>", unsafe_allow_html=True)
     st.markdown("<div class='login-title'>Tiendas Premium</div>", unsafe_allow_html=True)
     st.markdown("<div class='login-subtitle'>Control de Inventario</div>", unsafe_allow_html=True)
 
@@ -817,7 +875,7 @@ def pantalla_inicio():
     with k4: kpi("Sesiones abiertas", str(sesiones_abiertas), "en curso")
 
     st.markdown("<div class='section-title'>⚡ Acciones rápidas</div>", unsafe_allow_html=True)
-    a1, a2, a3 = st.columns(3)
+    a1, a2, a3, a4 = st.columns(4)
     with a1:
         if st.button("🧾 Nueva sesión", use_container_width=True):
             st.session_state.pagina = "Sesión"
@@ -829,6 +887,10 @@ def pantalla_inicio():
     with a3:
         if st.button("📊 Ver resultados", use_container_width=True):
             st.session_state.pagina = "Resultados"
+            st.rerun()
+    with a4:
+        if st.button("💲 Consultar precio", use_container_width=True):
+            st.session_state.pagina = "Precios"
             st.rerun()
 
     st.markdown("<div class='section-title'>📌 Últimos conteos</div>", unsafe_allow_html=True)
@@ -1111,6 +1173,127 @@ def pantalla_busqueda(sesion):
         st.rerun()
 
 # =========================================================
+# CONSULTA DE PRECIOS (para atención rápida en caja/piso)
+# =========================================================
+
+def tarjeta_precio(producto):
+    nombre = producto.get("Producto", "Producto sin nombre")
+    precio = limpiar_numero(producto.get("PrecioVenta", 0))
+    stock = limpiar_numero(producto.get("StockSistema", 0))
+    unidad = producto.get("Unidad", "") or "unidad"
+
+    st.markdown(
+        f"""
+        <div class='price-hero'>
+            <div class='price-label'>{safe_text(nombre)}</div>
+            <div class='price-value'>{formato_soles(precio)}</div>
+            <div class='price-sub'>Precio de venta al público</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        f"""
+        <div class='price-info-grid'>
+            <div class='price-info-item'><div class='lbl'>Código</div><div class='val'>{safe_text(producto.get('CodigoProducto','') or '—')}</div></div>
+            <div class='price-info-item'><div class='lbl'>Marca</div><div class='val'>{safe_text(producto.get('Marca','') or '—')}</div></div>
+            <div class='price-info-item'><div class='lbl'>Categoría</div><div class='val'>{safe_text(producto.get('Categoria','') or '—')}</div></div>
+            <div class='price-info-item'><div class='lbl'>Stock</div><div class='val'>{stock:,.0f} {safe_text(unidad)}</div></div>
+            <div class='price-info-item'><div class='lbl'>Sucursal</div><div class='val'>{safe_text(producto.get('Sucursal','') or '—')}</div></div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    if stock <= 0:
+        st.warning("⚠️ El sistema no registra stock disponible para este producto.")
+
+    if st.button("🔎 Consultar otro producto", type="primary", use_container_width=True):
+        st.session_state.precio_producto = None
+        st.session_state.precio_ultimo_codigo_scan = ""
+        st.rerun()
+
+
+def pantalla_precios():
+    header("Consulta de precios", "Escanea o busca un producto para informar su precio al instante")
+
+    if st.session_state.get("precio_producto"):
+        tarjeta_precio(st.session_state.precio_producto)
+        return
+
+    modo = st.session_state.get("precio_modo", "scanner")
+    a1, a2 = st.columns(2)
+    with a1:
+        if st.button("📷 Escanear código", use_container_width=True, type="primary" if modo == "scanner" else "secondary"):
+            st.session_state.precio_modo = "scanner"
+            st.rerun()
+    with a2:
+        if st.button("🔎 Buscar por nombre", use_container_width=True, type="primary" if modo == "busqueda" else "secondary"):
+            st.session_state.precio_modo = "busqueda"
+            st.rerun()
+
+    st.divider()
+
+    if modo == "busqueda":
+        texto = st.text_input("Buscar producto", placeholder="Ej. Inca Kola, 775..., Coca...", key="precio_texto_busqueda")
+        df = buscar_productos(texto)
+        if df.empty:
+            st.info("Escribe un nombre, marca o código para ver resultados.")
+        else:
+            st.caption(f"Mostrando {len(df):,} resultado(s).")
+            for idx, producto in df.iterrows():
+                nombre = str(producto.get("Producto", "Sin nombre"))
+                precio = formato_soles(producto.get("PrecioVenta", 0))
+                st.markdown(
+                    f"<div class='card'><b>{safe_text(nombre)}</b> — <span style='color:#1071b8;font-weight:800'>{precio}</span>"
+                    f"<br><span style='color:#6b7280;font-size:.8rem'>Código: {safe_text(producto.get('CodigoProducto',''))}</span></div>",
+                    unsafe_allow_html=True,
+                )
+                if st.button("Ver precio", key=f"precio_sel_{idx}", use_container_width=True):
+                    st.session_state.precio_producto = producto.to_dict()
+                    st.rerun()
+        return
+
+    st.markdown(
+        "<div class='mobile-note'>📱 Apunta la cámara al código de barras. Ideal para responder consultas de precio en caja sin usar el conteo físico.</div>",
+        unsafe_allow_html=True,
+    )
+    try:
+        from streamlit_qrcode_scanner import qrcode_scanner
+        codigo = qrcode_scanner(key="precio_barcode_scanner")
+        if codigo:
+            codigo = limpiar_codigo(codigo)
+            if codigo and codigo != st.session_state.get("precio_ultimo_codigo_scan", ""):
+                st.session_state.precio_ultimo_codigo_scan = codigo
+                producto = buscar_por_codigo(codigo)
+                if producto:
+                    st.session_state.precio_producto = producto
+                    sonido_confirmacion()
+                    st.rerun()
+                else:
+                    st.error(f"No encontramos el código **{codigo}** en el inventario.")
+    except ImportError:
+        st.warning("El escáner no está instalado. Agrega `streamlit-qrcode-scanner` a requirements.txt.")
+    except Exception as exc:
+        st.warning("No se pudo iniciar la cámara. Usa la búsqueda por nombre.")
+        with st.expander("Detalle técnico"):
+            st.code(str(exc))
+
+    st.divider()
+    with st.form("form_codigo_precio", clear_on_submit=True):
+        codigo_manual = st.text_input(
+            "Código de barras / código de producto",
+            placeholder="Escanea con un lector físico o escribe el código y presiona Enter",
+        )
+        buscar = st.form_submit_button("🔎 Consultar precio", use_container_width=True)
+    if buscar and codigo_manual.strip():
+        producto = buscar_por_codigo(codigo_manual)
+        if producto:
+            st.session_state.precio_producto = producto
+            st.rerun()
+        else:
+            st.error(f"No encontramos el código **{limpiar_codigo(codigo_manual)}** en el inventario.")
+
+# =========================================================
 # INVENTARIO
 # =========================================================
 
@@ -1362,11 +1545,15 @@ def pantalla_admin():
 def sidebar():
     usuario = st.session_state.usuario
     rol = str(usuario.get("Rol", "CONTADOR")).upper()
-    st.sidebar.markdown("# 📦 Tiendas Premium")
+    st.sidebar.markdown(
+        f"<div style='display:flex;align-items:center;gap:10px;margin-bottom:2px;'>"
+        f"{logo_tag(38)}<span style='font-size:1.25rem;font-weight:850;'>Tiendas Premium</span></div>",
+        unsafe_allow_html=True,
+    )
     st.sidebar.caption(f"{usuario.get('NombreCompleto','')} · {rol}")
     st.sidebar.divider()
 
-    opciones = ["Inicio", "Sesión", "Inventario", "Resultados"]
+    opciones = ["Inicio", "Precios", "Sesión", "Inventario", "Resultados"]
     if rol == "ADMIN":
         opciones.append("Administración")
 
@@ -1384,7 +1571,7 @@ def sidebar():
         st.rerun()
 
     if st.sidebar.button("🚪 Cerrar sesión", use_container_width=True):
-        for key in ["autenticado", "usuario", "pagina", "sesion_actual", "codigo_pendiente", "producto_pendiente", "modo_inventario", "ultimo_codigo_scan"]:
+        for key in ["autenticado", "usuario", "pagina", "sesion_actual", "codigo_pendiente", "producto_pendiente", "modo_inventario", "ultimo_codigo_scan", "precio_producto", "precio_modo", "precio_ultimo_codigo_scan"]:
             st.session_state.pop(key, None)
         st.rerun()
 
@@ -1402,6 +1589,9 @@ for key, default in {
     "producto_pendiente": None,
     "modo_inventario": "scanner",
     "ultimo_codigo_scan": "",
+    "precio_producto": None,
+    "precio_modo": "scanner",
+    "precio_ultimo_codigo_scan": "",
 }.items():
     if key not in st.session_state:
         st.session_state[key] = default
@@ -1438,6 +1628,8 @@ try:
     pagina = st.session_state.get("pagina", "Inicio")
     if pagina == "Inicio":
         pantalla_inicio()
+    elif pagina == "Precios":
+        pantalla_precios()
     elif pagina == "Sesión":
         pantalla_sesion()
     elif pagina == "Inventario":
