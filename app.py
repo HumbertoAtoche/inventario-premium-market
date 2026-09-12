@@ -3,9 +3,11 @@ import pandas as pd
 import gspread
 import hashlib
 import io
+import os
 import re
 import html
 import base64
+import mimetypes
 from datetime import datetime
 from google.oauth2.service_account import Credentials
 import streamlit.components.v1 as components
@@ -15,20 +17,24 @@ import streamlit.components.v1 as components
 # app.py — versión optimizada para Google Sheets + móvil
 # =========================================================
 
-# 👉 Reemplaza esta URL por el enlace "raw" de tu logo.jpg en GitHub.
-# Debe verse así (NO el link de la página de GitHub, sino el de contenido crudo):
-# https://raw.githubusercontent.com/TU_USUARIO/TU_REPOSITORIO/main/images/logo.jpg
-LOGO_URL = "https://raw.githubusercontent.com/TU_USUARIO/TU_REPOSITORIO/main/images/logo.jpg"
+# 👉 LOGO DE LA EMPRESA
+# Archivo real: assets/logo (2).png   (carpeta "assets" al mismo nivel que este app.py, en tu repo de GitHub)
+# Streamlit Cloud clona todo el repositorio, así que apenas subas el archivo y hagas commit,
+# la app lo encuentra automáticamente. Si algún día cambias de nombre/carpeta, solo edita LOGO_PATH.
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+LOGO_PATH = os.path.join(BASE_DIR, "assets", "logo (2).png")
+LOGO_DISPONIBLE = os.path.isfile(LOGO_PATH)
+LOGO_MIME = mimetypes.guess_type(LOGO_PATH)[0] or "image/png"
 
 try:
     st.set_page_config(
         page_title="Inventario | Tiendas Premium",
-        page_icon=LOGO_URL,
+        page_icon=LOGO_PATH if LOGO_DISPONIBLE else "📦",
         layout="wide",
         initial_sidebar_state="expanded",
     )
 except Exception:
-    # Si la URL del logo aún no es válida o no hay internet para cargarla,
+    # Si el logo todavía no existe o hay algún problema leyéndolo,
     # la app sigue funcionando con un ícono por defecto.
     st.set_page_config(
         page_title="Inventario | Tiendas Premium",
@@ -103,18 +109,45 @@ st.markdown("""
     }
 
     .stApp { background: var(--bg); }
-    .block-container { padding-top: 1rem; padding-bottom: 4rem; max-width: 1450px; }
+    .block-container {
+        padding-top: 1rem;
+        padding-bottom: 4rem;
+        max-width: 1450px;
+        animation: fadeInUp .45s ease both;
+    }
+
+    @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
 
     .premium-header {
-        background: linear-gradient(135deg, #ec3237 0%, #c91f25 100%);
+        position: relative;
+        overflow: hidden;
+        background: linear-gradient(120deg, #ec3237 0%, #c91f25 45%, #a91820 100%);
+        background-size: 220% 220%;
+        animation: gradientShift 10s ease infinite;
         color: white;
-        padding: 22px 26px;
+        padding: 24px 28px;
         border-radius: 18px;
         margin-bottom: 18px;
-        box-shadow: 0 8px 25px rgba(236,50,55,.14);
+        box-shadow: 0 10px 28px rgba(236,50,55,.18);
     }
-    .premium-header h1 { margin: 0; font-size: 1.65rem; font-weight: 800; }
-    .premium-header p { margin: 5px 0 0; opacity: .92; font-size: .92rem; }
+    .premium-header::after {
+        content: "";
+        position: absolute;
+        top: -60%; right: -10%;
+        width: 260px; height: 260px;
+        background: radial-gradient(circle, rgba(255,255,255,.14) 0%, rgba(255,255,255,0) 70%);
+        pointer-events: none;
+    }
+    @keyframes gradientShift {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
+    .premium-header h1 { margin: 0; font-size: 1.65rem; font-weight: 800; position: relative; z-index: 1; }
+    .premium-header p { margin: 5px 0 0; opacity: .92; font-size: .92rem; position: relative; z-index: 1; }
 
     .section-title { color: var(--text); font-size: 1.1rem; font-weight: 800; margin: 12px 0 10px; }
 
@@ -125,6 +158,11 @@ st.markdown("""
         padding: 18px;
         box-shadow: 0 4px 15px rgba(17,24,39,.045);
         margin-bottom: 14px;
+        transition: box-shadow .15s ease, transform .15s ease;
+    }
+    .card:hover {
+        box-shadow: 0 8px 20px rgba(17,24,39,.08);
+        transform: translateY(-1px);
     }
 
     .kpi-card {
@@ -148,10 +186,12 @@ st.markdown("""
     .product-card {
         background: white;
         border: 1px solid var(--border);
+        border-top: 4px solid var(--blue);
         border-radius: 18px;
         padding: 18px;
         box-shadow: 0 7px 22px rgba(17,24,39,.06);
         margin: 10px 0 15px;
+        animation: fadeInUp .3s ease both;
     }
     .product-name { font-size: 1.22rem; font-weight: 850; color: var(--text); line-height: 1.25; }
     .product-meta { color: var(--muted); font-size: .82rem; margin-top: 4px; }
@@ -176,8 +216,18 @@ st.markdown("""
     .badge-ok { background:#dcfce7; color:#166534; }
     .badge-faltante { background:#fee2e2; color:#b91c1c; }
     .badge-sobrante { background:#dcfce7; color:#166534; }
-    .badge-abierta { background:#dbeafe; color:#1d4ed8; }
+    .badge-abierta {
+        background:#dbeafe; color:#1d4ed8;
+        box-shadow: 0 0 0 0 rgba(29,78,216,.5);
+        animation: pulseBadge 2s infinite;
+    }
     .badge-cerrada { background:#f3f4f6; color:#4b5563; }
+
+    @keyframes pulseBadge {
+        0%   { box-shadow: 0 0 0 0 rgba(29,78,216,.35); }
+        70%  { box-shadow: 0 0 0 7px rgba(29,78,216,0); }
+        100% { box-shadow: 0 0 0 0 rgba(29,78,216,0); }
+    }
 
     .price-hero {
         background: linear-gradient(135deg, #1071b8 0%, #0a5488 100%);
@@ -209,10 +259,29 @@ st.markdown("""
         .price-hero .price-value { font-size: 2.3rem; }
     }
 
-    .login-wrap { max-width: 460px; margin: 7vh auto 0; }
-    .login-logo { text-align:center; font-size: 3.3rem; margin-bottom: 5px; }
+    .login-wrap {
+        max-width: 460px;
+        margin: 6vh auto 0;
+        background: white;
+        border: 1px solid var(--border);
+        border-top: 5px solid var(--red);
+        border-radius: 22px;
+        padding: 34px 30px 26px;
+        box-shadow: 0 18px 45px rgba(17,24,39,.09);
+        animation: fadeInUp .5s ease both;
+    }
+    .login-logo { text-align:center; margin-bottom: 10px; }
     .login-title { text-align:center; font-size:1.7rem; font-weight:900; color:#111827; }
-    .login-subtitle { text-align:center; color:#6b7280; margin-bottom:20px; }
+    .login-subtitle { text-align:center; color:#6b7280; margin-bottom:22px; }
+    .login-tag {
+        text-align:center;
+        color: var(--muted);
+        font-size: .74rem;
+        font-weight: 700;
+        letter-spacing: .06em;
+        text-transform: uppercase;
+        margin-top: 4px;
+    }
 
     .mobile-note {
         background: #fff7ed;
@@ -340,15 +409,28 @@ def safe_text(valor):
 
 def logo_tag(height=52, fallback_emoji="📦"):
     """
-    Devuelve un <img> con el logo de la empresa. Si LOGO_URL todavía no es válida
-    o no carga, muestra automáticamente el emoji de respaldo (sin romper la UI).
+    Devuelve un <img> con el logo de la empresa leído directamente del archivo
+    local images/logo.jpg (incrustado en Base64, sin depender de internet).
+    Si el archivo todavía no existe, muestra automáticamente el emoji de respaldo.
     """
+    b64 = _logo_base64()
+    if not b64:
+        return f'<span style="font-size:{height}px;line-height:1;">{fallback_emoji}</span>'
     return (
-        f'<img src="{LOGO_URL}" alt="logo" style="height:{height}px;max-width:100%;'
-        f'object-fit:contain;vertical-align:middle;" '
-        f'onerror="this.onerror=null;this.outerHTML=\'<span style=&quot;font-size:{height}px;'
-        f'line-height:1;&quot;>{fallback_emoji}</span>\';">'
+        f'<img src="data:{LOGO_MIME};base64,{b64}" alt="logo" '
+        f'style="height:{height}px;max-width:100%;object-fit:contain;vertical-align:middle;">'
     )
+
+
+@st.cache_data(show_spinner=False)
+def _logo_base64():
+    if not LOGO_DISPONIBLE:
+        return ""
+    try:
+        with open(LOGO_PATH, "rb") as f:
+            return base64.b64encode(f.read()).decode("ascii")
+    except Exception:
+        return ""
 
 
 @st.cache_data(show_spinner=False)
@@ -819,7 +901,6 @@ def pantalla_login():
     st.markdown(f"<div class='login-logo'>{logo_tag(72)}</div>", unsafe_allow_html=True)
     st.markdown("<div class='login-title'>Tiendas Premium</div>", unsafe_allow_html=True)
     st.markdown("<div class='login-subtitle'>Control de Inventario</div>", unsafe_allow_html=True)
-
     with st.form("login_form"):
         usuario = st.text_input("Usuario", placeholder="Ingresa tu usuario")
         password = st.text_input("Contraseña", type="password", placeholder="Ingresa tu contraseña")
@@ -841,6 +922,10 @@ def pantalla_login():
         except Exception as exc:
             mostrar_error_google(exc, "inicio de sesión")
 
+    st.markdown(
+        f"<div class='login-tag'>🔒 Acceso corporativo · {safe_text(COMPANY)}</div>",
+        unsafe_allow_html=True,
+    )
     st.markdown("</div>", unsafe_allow_html=True)
     footer()
 
@@ -1545,12 +1630,18 @@ def pantalla_admin():
 def sidebar():
     usuario = st.session_state.usuario
     rol = str(usuario.get("Rol", "CONTADOR")).upper()
+    rol_color = "#dbeafe;color:#1d4ed8" if rol == "ADMIN" else "#dcfce7;color:#166534"
     st.sidebar.markdown(
-        f"<div style='display:flex;align-items:center;gap:10px;margin-bottom:2px;'>"
-        f"{logo_tag(38)}<span style='font-size:1.25rem;font-weight:850;'>Tiendas Premium</span></div>",
+        f"<div style='display:flex;align-items:center;gap:10px;margin-bottom:8px;'>"
+        f"{logo_tag(38)}<span style='font-size:1.2rem;font-weight:850;'>Tiendas Premium</span></div>",
         unsafe_allow_html=True,
     )
-    st.sidebar.caption(f"{usuario.get('NombreCompleto','')} · {rol}")
+    st.sidebar.markdown(
+        f"<div style='font-size:.85rem;color:#374151;margin-bottom:4px;'>{safe_text(usuario.get('NombreCompleto',''))}</div>"
+        f"<span style='display:inline-block;background:{rol_color};padding:2px 10px;border-radius:999px;"
+        f"font-size:.68rem;font-weight:800;letter-spacing:.03em;'>{safe_text(rol)}</span>",
+        unsafe_allow_html=True,
+    )
     st.sidebar.divider()
 
     opciones = ["Inicio", "Precios", "Sesión", "Inventario", "Resultados"]
