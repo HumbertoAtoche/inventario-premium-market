@@ -336,6 +336,285 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =========================================================
+# DISEÑO CORPORATIVO TIENDAS PREMIUM — MISMO ESTILO APP 39
+# Solo capa visual; no modifica la lógica de la aplicación.
+# =========================================================
+st.markdown("""
+<style>
+    /* Fondo general */
+    .stApp {
+        background-color: #FAFAFA !important;
+    }
+
+    /* Contenedor principal del login: equivalente visual a App 39 */
+    .st-key-login_card {
+        max-width: 460px !important;
+        margin: 6vh auto 0 !important;
+        background: #FFFFFF !important;
+        border: 1px solid #E5E7EB !important;
+        border-top: 4px solid #EC3237 !important;
+        border-radius: 8px !important;
+        padding: 0 !important;
+        box-shadow: none !important;
+        animation: none !important;
+    }
+
+    /* Login actual de App 40 usa columnas + container(border=True) */
+    div[data-testid="stVerticalBlockBorderWrapper"] {
+        border-color: #E5E7EB !important;
+        border-radius: 8px !important;
+        box-shadow: none !important;
+    }
+
+    /* Textos del login */
+    .st-key-login_card label,
+    .st-key-login_card [data-testid="stWidgetLabel"] p {
+        color: #374151 !important;
+        font-size: .78rem !important;
+        font-weight: 500 !important;
+    }
+
+    .st-key-login_card input {
+        border: 1px solid #D1D5DB !important;
+        border-radius: 6px !important;
+        background: #FFFFFF !important;
+        color: #111827 !important;
+    }
+
+    .st-key-login_card input:focus {
+        border-color: #EC3237 !important;
+        box-shadow: 0 0 0 1px #EC3237 !important;
+    }
+
+    /* Botones App 39 */
+    .stButton > button {
+        background-color: #111827 !important;
+        color: #FFFFFF !important;
+        border-radius: 6px !important;
+        border: none !important;
+        font-weight: 500 !important;
+        font-size: .82rem !important;
+        min-height: 2.8em !important;
+        letter-spacing: .3px !important;
+        box-shadow: none !important;
+    }
+
+    .stButton > button:hover {
+        background-color: #374151 !important;
+        border-color: transparent !important;
+    }
+
+    /* Botón primario */
+    .stButton > button[kind="primary"] {
+        background-color: #EC3237 !important;
+    }
+
+    .stButton > button[kind="primary"]:hover {
+        background-color: #D02429 !important;
+    }
+
+    /* Encabezados internos */
+    .premium-header {
+        background: #FFFFFF !important;
+        color: #111827 !important;
+        padding: 20px 24px !important;
+        border-radius: 8px !important;
+        border: 1px solid #E5E7EB !important;
+        border-left: 4px solid #EC3237 !important;
+        margin-bottom: 24px !important;
+        box-shadow: none !important;
+        animation: none !important;
+    }
+
+    .premium-header::after {
+        display: none !important;
+    }
+
+    .premium-header h1 {
+        color: #111827 !important;
+        font-size: 1.3rem !important;
+        font-weight: 600 !important;
+        letter-spacing: -.3px !important;
+    }
+
+    .premium-header p {
+        color: #6B7280 !important;
+        opacity: 1 !important;
+        font-size: .85rem !important;
+        font-weight: 400 !important;
+    }
+
+    .section-title {
+        color: #111827 !important;
+        font-size: 1rem !important;
+        font-weight: 600 !important;
+    }
+
+    /* Tarjetas */
+    .card,
+    .kpi-card,
+    .product-card,
+    .price-info-item {
+        background: #FFFFFF !important;
+        border: 1px solid #E5E7EB !important;
+        border-radius: 8px !important;
+        box-shadow: none !important;
+        transform: none !important;
+    }
+
+    .card {
+        padding: 18px 20px !important;
+    }
+
+    .kpi-card {
+        padding: 18px 20px !important;
+        min-height: 105px !important;
+    }
+
+    .kpi-card:hover,
+    .card:hover {
+        box-shadow: none !important;
+        transform: none !important;
+    }
+
+    .kpi-label,
+    .stock-label {
+        color: #6B7280 !important;
+        font-size: .7rem !important;
+        font-weight: 600 !important;
+        letter-spacing: .8px !important;
+    }
+
+    .kpi-value,
+    .stock-number {
+        color: #111827 !important;
+        font-weight: 700 !important;
+    }
+
+    .product-card {
+        border-top: 3px solid #1071B8 !important;
+    }
+
+    .product-name {
+        color: #111827 !important;
+        font-weight: 700 !important;
+    }
+
+    .product-meta {
+        color: #4B5563 !important;
+    }
+
+    .stock-box {
+        background: #F8FAFC !important;
+        border: 1px solid #E5E7EB !important;
+        border-radius: 8px !important;
+    }
+
+    .price-hero {
+        background: #FFFFFF !important;
+        color: #111827 !important;
+        border: 1px solid #E5E7EB !important;
+        border-radius: 8px !important;
+        box-shadow: none !important;
+    }
+
+    .price-hero .price-label,
+    .price-hero .price-sub {
+        color: #6B7280 !important;
+        opacity: 1 !important;
+    }
+
+    .price-hero .price-value {
+        color: #111827 !important;
+    }
+
+    .mobile-note {
+        background: #FFFFFF !important;
+        border: 1px solid #E5E7EB !important;
+        color: #6B7280 !important;
+        border-radius: 8px !important;
+    }
+
+    /* Sidebar igual al lenguaje visual de App 39 */
+    [data-testid="stSidebar"] {
+        background-color: #111827 !important;
+        border-right: 1px solid #1F2937 !important;
+    }
+
+    [data-testid="stSidebar"] * {
+        color: #E5E7EB !important;
+    }
+
+    [data-testid="stSidebar"] .stButton > button {
+        background-color: #111827 !important;
+        color: #FFFFFF !important;
+        border: 1px solid #374151 !important;
+        border-radius: 6px !important;
+    }
+
+    [data-testid="stSidebar"] .stButton > button:hover {
+        background-color: #1F2937 !important;
+    }
+
+    /* Footer EXACTAMENTE con la estructura de App 39 */
+    .app-footer {
+        text-align: center;
+        color: #6B7280;
+        font-size: 0.72rem;
+        line-height: 1.7;
+        padding: 24px 5px 8px;
+        margin-top: 35px;
+        border-top: 1px solid #E5E7EB;
+    }
+
+    .app-footer strong {
+        color: #374151;
+        font-weight: 700;
+    }
+
+    /* Ajuste móvil */
+    @media (max-width: 768px) {
+        .st-key-login_card {
+            max-width: 100% !important;
+            margin: 3vh auto 0 !important;
+        }
+
+        .premium-header {
+            padding: 17px !important;
+            border-radius: 8px !important;
+        }
+
+        .premium-header h1 {
+            font-size: 1.28rem !important;
+        }
+
+        .premium-header p {
+            font-size: .8rem !important;
+        }
+
+        .card {
+            padding: 13px !important;
+        }
+
+        .kpi-card {
+            min-height: 88px !important;
+            padding: 12px !important;
+        }
+
+        .kpi-value {
+            font-size: 1.25rem !important;
+        }
+
+        .app-footer {
+            font-size: .68rem;
+            padding-top: 20px;
+        }
+    }
+</style>
+""", unsafe_allow_html=True)
+
+
+# =========================================================
 # UTILIDADES
 # =========================================================
 
@@ -835,10 +1114,13 @@ def header(titulo, subtitulo=""):
 
 
 def footer():
-    st.markdown(
-        "<div class='footer-premium'>Desarrollado por Humberto Atoche, Tiendas Premium EIRL — RUC 20612107787</div>",
-        unsafe_allow_html=True,
-    )
+    st.markdown("""
+        <div class="app-footer">
+            Desarrollado por <strong>Humberto Atoche Obeso</strong><br>
+            <strong>Tiendas Premium E.I.R.L.</strong> • RUC 20612107786<br>
+            Todos los derechos reservados
+        </div>
+    """, unsafe_allow_html=True)
 
 
 def kpi(label, value, note=""):
@@ -900,38 +1182,58 @@ def pantalla_login():
         footer()
         return
 
-    with st.container(key="login_card"):
-        st.markdown(f"<div class='login-logo'>{logo_tag(72)}</div>", unsafe_allow_html=True)
-        st.markdown("<div class='login-title'>Tiendas Premium</div>", unsafe_allow_html=True)
-        st.markdown("<div class='login-subtitle'>Control de Inventario</div>", unsafe_allow_html=True)
+    # --- LOGIN ESTILO CORPORATIVO TIENDAS PREMIUM / APP 39 ---
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    c_log1, c_log2, c_log3 = st.columns([1, 1, 1])
 
-        with st.form("login_form", border=False):
-            usuario = st.text_input("Usuario", placeholder="Ingresa tu usuario")
-            password = st.text_input("Contraseña", type="password", placeholder="Ingresa tu contraseña")
-            entrar = st.form_submit_button("Ingresar", type="primary", use_container_width=True)
+    with c_log2:
+        with st.container(border=True):
+            st.markdown(
+                f"""
+                <div style='text-align: center; padding-bottom: 12px;'>
+                    <div style='padding: 4px 0 12px 0;'>
+                        {logo_tag(72)}
+                    </div>
+                    <span style='font-size: 0.75rem; font-weight: 700; letter-spacing: 1.5px; color: #EC3237;'>
+                        TIENDAS PREMIUM
+                    </span>
+                    <h3 style='margin: 4px 0 0 0; font-weight: 600; color: #111827; font-size: 1.1rem;'>
+                        Iniciar Sesión
+                    </h3>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
-        if entrar:
-            try:
-                registro = autenticar(usuario, password)
-                if registro:
-                    st.session_state.autenticado = True
-                    st.session_state.usuario = registro
-                    st.session_state.pagina = "Inicio"
-                    st.session_state.codigo_pendiente = ""
-                    st.session_state.producto_pendiente = None
-                    st.session_state.modo_inventario = "scanner"
-                    st.rerun()
-                else:
-                    st.error("Usuario o contraseña incorrectos.")
-            except Exception as exc:
-                mostrar_error_google(exc, "inicio de sesión")
+            usuario = st.text_input(
+                "Usuario",
+                placeholder="Ingresa tu usuario",
+            )
+            password = st.text_input(
+                "Contraseña",
+                type="password",
+                placeholder="Ingresa tu contraseña",
+            )
+            st.markdown("<br>", unsafe_allow_html=True)
 
-        st.markdown(
-            f"<div class='login-tag'>🔒 Acceso corporativo · {safe_text(COMPANY)}</div>",
-            unsafe_allow_html=True,
-        )
+            if st.button("Ingresar al Sistema", use_container_width=True):
+                try:
+                    registro = autenticar(usuario, password)
+                    if registro:
+                        st.session_state.autenticado = True
+                        st.session_state.usuario = registro
+                        st.session_state.pagina = "Inicio"
+                        st.session_state.codigo_pendiente = ""
+                        st.session_state.producto_pendiente = None
+                        st.session_state.modo_inventario = "scanner"
+                        st.rerun()
+                    else:
+                        st.error("Credenciales incorrectas")
+                except Exception as exc:
+                    mostrar_error_google(exc, "inicio de sesión")
 
-    footer()
+    st.stop()
+
 
 # =========================================================
 # INICIO
@@ -1741,50 +2043,3 @@ except Exception as exc:
     mostrar_error_google(exc, "carga de la pantalla")
     footer()
 
-
-# =========================================================
-# DISEÑO CORPORATIVO APP 39 — CAPA VISUAL AGREGADA
-# =========================================================
-st.markdown("""
-<style>
-.premium-header{background:#FFFFFF!important;color:#111827!important;padding:20px 24px!important;border-radius:8px!important;border:1px solid #E5E7EB!important;border-left:4px solid #EC3237!important;margin-bottom:24px!important;box-shadow:none!important;animation:none!important}
-.premium-header::after{display:none!important}
-.premium-header h1{color:#111827!important;font-size:1.3rem!important;font-weight:600!important;letter-spacing:-.3px!important}
-.premium-header p{color:#6B7280!important;opacity:1!important;font-size:.85rem!important;font-weight:400!important}
-.section-title{color:#111827!important;font-size:1rem!important;font-weight:600!important;margin:12px 0 10px!important}
-.card{background:#FFFFFF!important;border:1px solid #E5E7EB!important;border-radius:8px!important;padding:18px 20px!important;box-shadow:none!important;margin-bottom:15px!important;transform:none!important}
-.card:hover{box-shadow:none!important;transform:none!important}
-.kpi-card{background:#FFFFFF!important;border:1px solid #E5E7EB!important;border-top:none!important;border-radius:8px!important;padding:18px 20px!important;min-height:105px!important;box-shadow:none!important;transform:none!important}
-.kpi-card:hover{transform:none!important;box-shadow:none!important}
-.kpi-label{color:#6B7280!important;font-size:.7rem!important;font-weight:600!important;letter-spacing:.8px!important}
-.kpi-value{color:#111827!important;font-size:1.4rem!important;font-weight:700!important}
-.kpi-note{color:#6B7280!important;font-size:.75rem!important}
-.product-card{background:#FFFFFF!important;border:1px solid #E5E7EB!important;border-top:3px solid #1071B8!important;border-radius:8px!important;padding:18px!important;box-shadow:none!important;animation:none!important}
-.product-name{font-size:1.05rem!important;font-weight:700!important;color:#111827!important}
-.product-meta{color:#4B5563!important;font-size:.82rem!important}
-.stock-box{background:#F8FAFC!important;border:1px solid #E5E7EB!important;border-radius:8px!important;padding:13px!important}
-.stock-label{color:#6B7280!important;font-size:.7rem!important;font-weight:600!important}
-.stock-number{color:#111827!important;font-size:1.35rem!important;font-weight:700!important}
-.price-hero{background:#FFFFFF!important;color:#111827!important;border:1px solid #E5E7EB!important;border-radius:8px!important;padding:24px 22px!important;box-shadow:none!important;margin:14px 0!important}
-.price-hero .price-label{color:#6B7280!important;opacity:1!important}
-.price-hero .price-value{color:#111827!important;font-size:2.3rem!important}
-.price-hero .price-sub{color:#6B7280!important;opacity:1!important}
-.price-info-item{background:#FFFFFF!important;border:1px solid #E5E7EB!important;border-radius:8px!important;box-shadow:none!important}
-.mobile-note{background:#FFFFFF!important;border:1px solid #E5E7EB!important;color:#6B7280!important;border-radius:8px!important}
-.footer-premium{border-top:1px solid #E5E7EB!important;color:#6B7280!important;font-size:.8rem!important;padding:24px 10px 12px!important;margin-top:40px!important}
-</style>
-""", unsafe_allow_html=True)
-
-
-# =========================================================
-# SIDEBAR APP 39 — CAPA VISUAL AGREGADA
-# =========================================================
-st.markdown("""
-<style>
-[data-testid="stSidebar"]{background-color:#111827!important;border-right:1px solid #1F2937!important}
-[data-testid="stSidebar"] *{color:#E5E7EB!important}
-[data-testid="stSidebar"] .stRadio label{color:#E5E7EB!important}
-[data-testid="stSidebar"] .stButton>button{background-color:#111827!important;color:#FFFFFF!important;border:1px solid #374151!important;border-radius:6px!important}
-[data-testid="stSidebar"] .stButton>button:hover{background-color:#1F2937!important}
-</style>
-""", unsafe_allow_html=True)
