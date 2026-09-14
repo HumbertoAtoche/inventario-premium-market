@@ -1740,3 +1740,51 @@ try:
 except Exception as exc:
     mostrar_error_google(exc, "carga de la pantalla")
     footer()
+
+
+# =========================================================
+# DISEÑO CORPORATIVO APP 39 — CAPA VISUAL AGREGADA
+# =========================================================
+st.markdown("""
+<style>
+.premium-header{background:#FFFFFF!important;color:#111827!important;padding:20px 24px!important;border-radius:8px!important;border:1px solid #E5E7EB!important;border-left:4px solid #EC3237!important;margin-bottom:24px!important;box-shadow:none!important;animation:none!important}
+.premium-header::after{display:none!important}
+.premium-header h1{color:#111827!important;font-size:1.3rem!important;font-weight:600!important;letter-spacing:-.3px!important}
+.premium-header p{color:#6B7280!important;opacity:1!important;font-size:.85rem!important;font-weight:400!important}
+.section-title{color:#111827!important;font-size:1rem!important;font-weight:600!important;margin:12px 0 10px!important}
+.card{background:#FFFFFF!important;border:1px solid #E5E7EB!important;border-radius:8px!important;padding:18px 20px!important;box-shadow:none!important;margin-bottom:15px!important;transform:none!important}
+.card:hover{box-shadow:none!important;transform:none!important}
+.kpi-card{background:#FFFFFF!important;border:1px solid #E5E7EB!important;border-top:none!important;border-radius:8px!important;padding:18px 20px!important;min-height:105px!important;box-shadow:none!important;transform:none!important}
+.kpi-card:hover{transform:none!important;box-shadow:none!important}
+.kpi-label{color:#6B7280!important;font-size:.7rem!important;font-weight:600!important;letter-spacing:.8px!important}
+.kpi-value{color:#111827!important;font-size:1.4rem!important;font-weight:700!important}
+.kpi-note{color:#6B7280!important;font-size:.75rem!important}
+.product-card{background:#FFFFFF!important;border:1px solid #E5E7EB!important;border-top:3px solid #1071B8!important;border-radius:8px!important;padding:18px!important;box-shadow:none!important;animation:none!important}
+.product-name{font-size:1.05rem!important;font-weight:700!important;color:#111827!important}
+.product-meta{color:#4B5563!important;font-size:.82rem!important}
+.stock-box{background:#F8FAFC!important;border:1px solid #E5E7EB!important;border-radius:8px!important;padding:13px!important}
+.stock-label{color:#6B7280!important;font-size:.7rem!important;font-weight:600!important}
+.stock-number{color:#111827!important;font-size:1.35rem!important;font-weight:700!important}
+.price-hero{background:#FFFFFF!important;color:#111827!important;border:1px solid #E5E7EB!important;border-radius:8px!important;padding:24px 22px!important;box-shadow:none!important;margin:14px 0!important}
+.price-hero .price-label{color:#6B7280!important;opacity:1!important}
+.price-hero .price-value{color:#111827!important;font-size:2.3rem!important}
+.price-hero .price-sub{color:#6B7280!important;opacity:1!important}
+.price-info-item{background:#FFFFFF!important;border:1px solid #E5E7EB!important;border-radius:8px!important;box-shadow:none!important}
+.mobile-note{background:#FFFFFF!important;border:1px solid #E5E7EB!important;color:#6B7280!important;border-radius:8px!important}
+.footer-premium{border-top:1px solid #E5E7EB!important;color:#6B7280!important;font-size:.8rem!important;padding:24px 10px 12px!important;margin-top:40px!important}
+</style>
+""", unsafe_allow_html=True)
+
+
+# =========================================================
+# SIDEBAR APP 39 — CAPA VISUAL AGREGADA
+# =========================================================
+st.markdown("""
+<style>
+[data-testid="stSidebar"]{background-color:#111827!important;border-right:1px solid #1F2937!important}
+[data-testid="stSidebar"] *{color:#E5E7EB!important}
+[data-testid="stSidebar"] .stRadio label{color:#E5E7EB!important}
+[data-testid="stSidebar"] .stButton>button{background-color:#111827!important;color:#FFFFFF!important;border:1px solid #374151!important;border-radius:6px!important}
+[data-testid="stSidebar"] .stButton>button:hover{background-color:#1F2937!important}
+</style>
+""", unsafe_allow_html=True)
