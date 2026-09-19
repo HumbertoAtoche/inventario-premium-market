@@ -98,517 +98,268 @@ HEADERS_USUARIOS = ["Usuario", "NombreCompleto", "Rol", "Password", "Estado"]
 
 st.markdown("""
 <style>
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap');
+
     :root {
-        --red: #ec3237;
-        --red-dark: #c91f25;
-        --green: #00a959;
-        --green-dark: #078348;
-        --blue: #1071b8;
+        --red: #EC3237;
+        --red-dark: #D02429;
+        --green: #00A959;
+        --green-dark: #008847;
+        --blue: #1071B8;
         --text: #111827;
-        --muted: #6b7280;
-        --bg: #f7f8fa;
-        --card: #ffffff;
-        --border: #e5e7eb;
+        --muted: #6B7280;
+        --bg: #FAFAFA;
+        --card: #FFFFFF;
+        --border: #E5E7EB;
     }
 
-    .stApp { background: var(--bg); }
+    html, body, [class*="css"], .stMarkdown, div, button, input, select, textarea {
+        font-family: 'Montserrat', sans-serif !important;
+    }
+
+    .stApp {
+        background-color: #FAFAFA;
+    }
+
+    header[data-testid="stHeader"] {
+        background-color: transparent !important;
+        z-index: 100;
+    }
+
+    header[data-testid="stHeader"] button {
+        color: #111827 !important;
+    }
+
     .block-container {
-        padding-top: 1rem;
         padding-bottom: 4rem;
-        max-width: 1450px;
-        animation: fadeInUp .45s ease both;
     }
 
-    @keyframes fadeInUp {
-        from { opacity: 0; transform: translateY(10px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
-
+    /* ---------- ENCABEZADO (idéntico al market-header de la App 43) ---------- */
+    .market-header,
     .premium-header {
-        position: relative;
-        overflow: hidden;
-        background: linear-gradient(120deg, #ec3237 0%, #c91f25 45%, #a91820 100%);
-        background-size: 220% 220%;
-        animation: gradientShift 10s ease infinite;
-        color: white;
-        padding: 24px 28px;
-        border-radius: 18px;
-        margin-bottom: 18px;
-        box-shadow: 0 10px 28px rgba(236,50,55,.18);
+        background-color: #FFFFFF;
+        padding: 20px 24px;
+        border-radius: 8px;
+        border: 1px solid #E5E7EB;
+        border-left: 4px solid #EC3237;
+        margin-bottom: 24px;
     }
-    .premium-header::after {
-        content: "";
-        position: absolute;
-        top: -60%; right: -10%;
-        width: 260px; height: 260px;
-        background: radial-gradient(circle, rgba(255,255,255,.14) 0%, rgba(255,255,255,0) 70%);
-        pointer-events: none;
+    .market-header h1,
+    .premium-header h1 {
+        color: #111827 !important;
+        margin: 0;
+        font-size: 1.3rem !important;
+        font-weight: 600 !important;
+        letter-spacing: -0.3px;
     }
-    @keyframes gradientShift {
-        0% { background-position: 0% 50%; }
-        50% { background-position: 100% 50%; }
-        100% { background-position: 0% 50%; }
-    }
-    .premium-header h1 { margin: 0; font-size: 1.65rem; font-weight: 800; position: relative; z-index: 1; }
-    .premium-header p { margin: 5px 0 0; opacity: .92; font-size: .92rem; position: relative; z-index: 1; }
-
-    .section-title { color: var(--text); font-size: 1.1rem; font-weight: 800; margin: 12px 0 10px; }
-
-    .card {
-        background: var(--card);
-        border: 1px solid var(--border);
-        border-radius: 16px;
-        padding: 18px;
-        box-shadow: 0 4px 15px rgba(17,24,39,.045);
-        margin-bottom: 14px;
-        transition: box-shadow .15s ease, transform .15s ease;
-    }
-    .card:hover {
-        box-shadow: 0 8px 20px rgba(17,24,39,.08);
-        transform: translateY(-1px);
+    .market-header p,
+    .premium-header p {
+        color: #6B7280;
+        margin: 4px 0 0 0;
+        font-size: 0.85rem;
+        font-weight: 400;
     }
 
+    .section-title {
+        color: #111827;
+        font-size: 1rem;
+        font-weight: 600;
+        margin: 12px 0 10px;
+    }
+
+    /* ---------- TARJETAS (idénticas al info-card de la App 43) ---------- */
+    .info-card,
+    .card,
+    .kpi-card,
+    .product-card,
+    .price-info-item {
+        background-color: #FFFFFF;
+        border: 1px solid #E5E7EB;
+        border-radius: 8px;
+        box-shadow: none;
+    }
+    .info-card,
+    .card,
     .kpi-card {
-        background: white;
-        border: 1px solid var(--border);
-        border-top: 3px solid var(--red);
-        border-radius: 16px;
-        padding: 16px 17px;
-        min-height: 105px;
-        box-shadow: 0 4px 15px rgba(17,24,39,.045);
-        transition: transform .15s ease, box-shadow .15s ease;
+        padding: 18px 20px;
+        margin-bottom: 15px;
     }
-    .kpi-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 22px rgba(17,24,39,.08);
+    .info-label,
+    .kpi-label,
+    .stock-label,
+    .price-info-item .lbl {
+        color: #6B7280;
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
     }
-    .kpi-label { color: var(--muted); font-size: .76rem; font-weight: 700; text-transform: uppercase; letter-spacing: .02em; }
-    .kpi-value { color: var(--text); font-size: 1.55rem; font-weight: 850; margin-top: 5px; }
-    .kpi-note { color: var(--muted); font-size: .75rem; margin-top: 2px; }
+    .info-value,
+    .kpi-value,
+    .stock-number {
+        color: #111827;
+        font-size: 1.4rem;
+        font-weight: 700;
+        margin-top: 4px;
+    }
+    .kpi-card { min-height: 105px; }
+    .kpi-note { color: #6B7280; font-size: 0.75rem; margin-top: 2px; }
 
     .product-card {
-        background: white;
-        border: 1px solid var(--border);
-        border-top: 4px solid var(--blue);
-        border-radius: 18px;
-        padding: 18px;
-        box-shadow: 0 7px 22px rgba(17,24,39,.06);
+        border-top: 3px solid #1071B8;
+        padding: 18px 20px;
         margin: 10px 0 15px;
-        animation: fadeInUp .3s ease both;
     }
-    .product-name { font-size: 1.22rem; font-weight: 850; color: var(--text); line-height: 1.25; }
-    .product-meta { color: var(--muted); font-size: .82rem; margin-top: 4px; }
+    .product-name { font-size: 1.15rem; font-weight: 700; color: #111827; line-height: 1.25; }
+    .product-meta { color: #4B5563; font-size: 0.82rem; margin-top: 4px; }
 
     .stock-box {
-        background: #f8fafc;
-        border: 1px solid #e5e7eb;
-        border-radius: 14px;
+        background-color: #F8FAFC;
+        border: 1px solid #E5E7EB;
+        border-radius: 8px;
         padding: 13px;
         text-align: center;
     }
-    .stock-label { color: #6b7280; font-size: .72rem; font-weight: 700; text-transform: uppercase; }
-    .stock-number { color: #111827; font-size: 1.45rem; font-weight: 850; }
 
     .badge {
         display: inline-block;
         padding: 4px 10px;
         border-radius: 999px;
-        font-size: .72rem;
-        font-weight: 800;
+        font-size: 0.72rem;
+        font-weight: 600;
     }
-    .badge-ok { background:#dcfce7; color:#166534; }
-    .badge-faltante { background:#fee2e2; color:#b91c1c; }
-    .badge-sobrante { background:#dcfce7; color:#166534; }
-    .badge-abierta {
-        background:#dbeafe; color:#1d4ed8;
-        box-shadow: 0 0 0 0 rgba(29,78,216,.5);
-        animation: pulseBadge 2s infinite;
-    }
-    .badge-cerrada { background:#f3f4f6; color:#4b5563; }
-
-    @keyframes pulseBadge {
-        0%   { box-shadow: 0 0 0 0 rgba(29,78,216,.35); }
-        70%  { box-shadow: 0 0 0 7px rgba(29,78,216,0); }
-        100% { box-shadow: 0 0 0 0 rgba(29,78,216,0); }
-    }
+    .badge-ok { background: #DCFCE7; color: #15803D; }
+    .badge-faltante { background: #FEE2E2; color: #B91C1C; }
+    .badge-sobrante { background: #DCFCE7; color: #15803D; }
+    .badge-abierta { background: #DBEAFE; color: #1D4ED8; }
+    .badge-cerrada { background: #F3F4F6; color: #4B5563; }
 
     .price-hero {
-        background: linear-gradient(135deg, #1071b8 0%, #0a5488 100%);
-        color: white;
-        border-radius: 20px;
+        background-color: #FFFFFF;
+        color: #111827;
+        border: 1px solid #E5E7EB;
+        border-radius: 8px;
         padding: 28px 22px;
         text-align: center;
-        box-shadow: 0 10px 28px rgba(16,113,184,.25);
+        box-shadow: none;
         margin: 14px 0;
     }
-    .price-hero .price-label { font-size: .85rem; font-weight: 700; text-transform: uppercase; opacity: .85; letter-spacing: .04em; }
-    .price-hero .price-value { font-size: 3rem; font-weight: 900; margin: 6px 0 2px; line-height: 1; }
-    .price-hero .price-sub { font-size: .88rem; opacity: .9; }
+    .price-hero .price-label { font-size: 0.8rem; font-weight: 600; text-transform: uppercase; color: #6B7280; letter-spacing: 0.8px; }
+    .price-hero .price-value { font-size: 3rem; font-weight: 800; margin: 6px 0 2px; line-height: 1; color: #111827; }
+    .price-hero .price-sub { font-size: 0.85rem; color: #6B7280; }
 
-    .price-info-grid { display:flex; gap:10px; flex-wrap:wrap; margin-top: 12px; }
+    .price-info-grid { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
     .price-info-item {
         flex: 1 1 120px;
-        background: white;
-        border: 1px solid var(--border);
-        border-radius: 13px;
         padding: 11px 12px;
         text-align: center;
     }
-    .price-info-item .lbl { color: var(--muted); font-size: .7rem; font-weight: 700; text-transform: uppercase; }
-    .price-info-item .val { color: var(--text); font-size: 1.05rem; font-weight: 800; margin-top: 3px; }
-
-    @media (max-width: 768px) {
-        .price-hero { padding: 22px 16px; }
-        .price-hero .price-value { font-size: 2.3rem; }
-    }
-
-    .st-key-login_card {
-        max-width: 460px;
-        margin: 6vh auto 0;
-        background: white;
-        border: 1px solid var(--border);
-        border-top: 5px solid var(--red);
-        border-radius: 22px;
-        padding: 34px 30px 26px;
-        box-shadow: 0 18px 45px rgba(17,24,39,.09);
-        animation: fadeInUp .5s ease both;
-    }
-    .login-logo { text-align:center; margin-bottom: 10px; }
-    .login-title { text-align:center; font-size:1.7rem; font-weight:900; color:#111827; }
-    .login-subtitle { text-align:center; color:#6b7280; margin-bottom:22px; }
-    .login-tag {
-        text-align:center;
-        color: var(--muted);
-        font-size: .74rem;
-        font-weight: 700;
-        letter-spacing: .06em;
-        text-transform: uppercase;
-        margin-top: 4px;
-    }
+    .price-info-item .val { color: #111827; font-size: 1.05rem; font-weight: 700; margin-top: 3px; }
 
     .mobile-note {
-        background: #fff7ed;
-        border: 1px solid #fed7aa;
-        color: #9a3412;
-        border-radius: 12px;
+        background-color: #FFFFFF;
+        border: 1px solid #E5E7EB;
+        color: #6B7280;
+        border-radius: 8px;
         padding: 10px 12px;
-        font-size: .82rem;
+        font-size: 0.82rem;
         margin-bottom: 12px;
     }
 
-    .footer-premium {
-        text-align: center;
-        color: #8a8f98;
-        font-size: .72rem;
-        padding: 22px 5px 5px;
-    }
-
-    div[data-testid="stButton"] > button {
-        border-radius: 11px;
-        min-height: 44px;
-        font-weight: 750;
-    }
-    div[data-testid="stFormSubmitButton"] > button {
-        border-radius: 11px;
-        min-height: 46px;
-        font-weight: 800;
-    }
-    div[data-testid="stTextInput"] input,
-    div[data-testid="stNumberInput"] input,
-    div[data-testid="stSelectbox"] div[data-baseweb="select"] > div {
-        border-radius: 10px;
-    }
-
-    @media (max-width: 768px) {
-        .block-container { padding: .55rem .65rem 4rem; }
-        .premium-header { padding: 17px; border-radius: 14px; }
-        .premium-header h1 { font-size: 1.28rem; }
-        .premium-header p { font-size: .8rem; }
-        .card { padding: 13px; border-radius: 13px; }
-        .kpi-card { min-height: 88px; padding: 12px; }
-        .kpi-value { font-size: 1.25rem; }
-        .product-card { padding: 14px; }
-        .product-name { font-size: 1.05rem; }
-        div[data-testid="stButton"] > button { min-height: 50px; }
-        div[data-testid="stFormSubmitButton"] > button { min-height: 50px; }
-    }
-</style>
-""", unsafe_allow_html=True)
-
-# =========================================================
-# DISEÑO CORPORATIVO TIENDAS PREMIUM — MISMO ESTILO APP 39
-# Solo capa visual; no modifica la lógica de la aplicación.
-# =========================================================
-st.markdown("""
-<style>
-    /* Fondo general */
-    .stApp {
-        background-color: #FAFAFA !important;
-    }
-
-    /* Contenedor principal del login: equivalente visual a App 39 */
-    .st-key-login_card {
-        max-width: 460px !important;
-        margin: 6vh auto 0 !important;
-        background: #FFFFFF !important;
-        border: 1px solid #E5E7EB !important;
-        border-top: 4px solid #EC3237 !important;
-        border-radius: 8px !important;
-        padding: 0 !important;
-        box-shadow: none !important;
-        animation: none !important;
-    }
-
-    /* Login actual de App 40 usa columnas + container(border=True) */
-    div[data-testid="stVerticalBlockBorderWrapper"] {
-        border-color: #E5E7EB !important;
-        border-radius: 8px !important;
-        box-shadow: none !important;
-    }
-
-    /* Textos del login */
-    .st-key-login_card label,
-    .st-key-login_card [data-testid="stWidgetLabel"] p {
-        color: #374151 !important;
-        font-size: .78rem !important;
-        font-weight: 500 !important;
-    }
-
-    .st-key-login_card input {
-        border: 1px solid #D1D5DB !important;
-        border-radius: 6px !important;
-        background: #FFFFFF !important;
-        color: #111827 !important;
-    }
-
-    .st-key-login_card input:focus {
-        border-color: #EC3237 !important;
-        box-shadow: 0 0 0 1px #EC3237 !important;
-    }
-
-    /* Botones App 39 */
-    .stButton > button {
+    /* ---------- BOTONES (idénticos a la App 43) ---------- */
+    .stButton>button {
         background-color: #111827 !important;
         color: #FFFFFF !important;
         border-radius: 6px !important;
         border: none !important;
         font-weight: 500 !important;
-        font-size: .82rem !important;
-        min-height: 2.8em !important;
-        letter-spacing: .3px !important;
-        box-shadow: none !important;
+        font-size: 0.82rem !important;
+        height: 2.8em !important;
+        transition: all 0.2s ease !important;
+        letter-spacing: 0.3px;
     }
-
-    .stButton > button:hover {
+    .stButton>button:hover {
         background-color: #374151 !important;
-        border-color: transparent !important;
     }
-
-    /* Botón primario */
-    .stButton > button[kind="primary"] {
+    .stButton>button[kind="primary"] {
         background-color: #EC3237 !important;
     }
-
-    .stButton > button[kind="primary"]:hover {
+    .stButton>button[kind="primary"]:hover {
         background-color: #D02429 !important;
     }
 
-    /* Encabezados internos */
-    .premium-header {
-        background: #FFFFFF !important;
-        color: #111827 !important;
-        padding: 20px 24px !important;
-        border-radius: 8px !important;
-        border: 1px solid #E5E7EB !important;
-        border-left: 4px solid #EC3237 !important;
-        margin-bottom: 24px !important;
-        box-shadow: none !important;
-        animation: none !important;
+    .btn-ingreso > button {
+        background-color: #00A959 !important;
+    }
+    .btn-ingreso > button:hover {
+        background-color: #008847 !important;
     }
 
-    .premium-header::after {
-        display: none !important;
+    .btn-salida > button {
+        background-color: #EC3237 !important;
+    }
+    .btn-salida > button:hover {
+        background-color: #D02429 !important;
     }
 
-    .premium-header h1 {
-        color: #111827 !important;
-        font-size: 1.3rem !important;
-        font-weight: 600 !important;
-        letter-spacing: -.3px !important;
-    }
-
-    .premium-header p {
-        color: #6B7280 !important;
-        opacity: 1 !important;
-        font-size: .85rem !important;
-        font-weight: 400 !important;
-    }
-
-    .section-title {
-        color: #111827 !important;
-        font-size: 1rem !important;
-        font-weight: 600 !important;
-    }
-
-    /* Tarjetas */
-    .card,
-    .kpi-card,
-    .product-card,
-    .price-info-item {
-        background: #FFFFFF !important;
-        border: 1px solid #E5E7EB !important;
-        border-radius: 8px !important;
-        box-shadow: none !important;
-        transform: none !important;
-    }
-
-    .card {
-        padding: 18px 20px !important;
-    }
-
-    .kpi-card {
-        padding: 18px 20px !important;
-        min-height: 105px !important;
-    }
-
-    .kpi-card:hover,
-    .card:hover {
-        box-shadow: none !important;
-        transform: none !important;
-    }
-
-    .kpi-label,
-    .stock-label {
-        color: #6B7280 !important;
-        font-size: .7rem !important;
-        font-weight: 600 !important;
-        letter-spacing: .8px !important;
-    }
-
-    .kpi-value,
-    .stock-number {
-        color: #111827 !important;
-        font-weight: 700 !important;
-    }
-
-    .product-card {
-        border-top: 3px solid #1071B8 !important;
-    }
-
-    .product-name {
-        color: #111827 !important;
-        font-weight: 700 !important;
-    }
-
-    .product-meta {
-        color: #4B5563 !important;
-    }
-
-    .stock-box {
-        background: #F8FAFC !important;
-        border: 1px solid #E5E7EB !important;
-        border-radius: 8px !important;
-    }
-
-    .price-hero {
-        background: #FFFFFF !important;
-        color: #111827 !important;
-        border: 1px solid #E5E7EB !important;
-        border-radius: 8px !important;
-        box-shadow: none !important;
-    }
-
-    .price-hero .price-label,
-    .price-hero .price-sub {
-        color: #6B7280 !important;
-        opacity: 1 !important;
-    }
-
-    .price-hero .price-value {
-        color: #111827 !important;
-    }
-
-    .mobile-note {
-        background: #FFFFFF !important;
-        border: 1px solid #E5E7EB !important;
-        color: #6B7280 !important;
-        border-radius: 8px !important;
-    }
-
-    /* Sidebar igual al lenguaje visual de App 39 */
+    /* ---------- SIDEBAR (copia exacta de la App 43) ---------- */
     [data-testid="stSidebar"] {
         background-color: #111827 !important;
-        border-right: 1px solid #1F2937 !important;
+        border-right: 1px solid #1F2937;
     }
-
     [data-testid="stSidebar"] * {
         color: #E5E7EB !important;
     }
 
-    [data-testid="stSidebar"] .stButton > button {
-        background-color: #111827 !important;
-        color: #FFFFFF !important;
+    .btn-logout > button {
+        background-color: transparent !important;
         border: 1px solid #374151 !important;
-        border-radius: 6px !important;
+        color: #9CA3AF !important;
     }
-
-    [data-testid="stSidebar"] .stButton > button:hover {
+    .btn-logout > button:hover {
         background-color: #1F2937 !important;
+        color: #FFFFFF !important;
     }
 
-    /* Footer EXACTAMENTE con la estructura de App 39 */
+    /* ---------- FORMULARIOS Y EXPANDERS (idénticos a la App 43) ---------- */
+    div[data-testid="stForm"], div[data-testid="stExpander"] {
+        border-radius: 8px !important;
+        border: 1px solid #E5E7EB !important;
+        background-color: #FFFFFF !important;
+        padding: 20px !important;
+        box-shadow: none !important;
+    }
+
+    /* ---------- FOOTER (idéntico a la App 43) ---------- */
     .app-footer {
         text-align: center;
-        color: #6B7280;
-        font-size: 0.72rem;
-        line-height: 1.7;
-        padding: 24px 5px 8px;
-        margin-top: 35px;
+        padding: 24px 10px 12px 10px;
+        margin-top: 40px;
         border-top: 1px solid #E5E7EB;
+        color: #6B7280;
+        font-size: 0.8rem;
+        line-height: 1.5;
     }
-
     .app-footer strong {
-        color: #374151;
-        font-weight: 700;
+        color: #111827;
     }
 
-    /* Ajuste móvil */
+    /* ---------- AJUSTES MÓVIL ---------- */
     @media (max-width: 768px) {
-        .st-key-login_card {
-            max-width: 100% !important;
-            margin: 3vh auto 0 !important;
-        }
-
-        .premium-header {
-            padding: 17px !important;
-            border-radius: 8px !important;
-        }
-
-        .premium-header h1 {
-            font-size: 1.28rem !important;
-        }
-
-        .premium-header p {
-            font-size: .8rem !important;
-        }
-
-        .card {
-            padding: 13px !important;
-        }
-
-        .kpi-card {
-            min-height: 88px !important;
-            padding: 12px !important;
-        }
-
-        .kpi-value {
-            font-size: 1.25rem !important;
-        }
-
-        .app-footer {
-            font-size: .68rem;
-            padding-top: 20px;
-        }
+        .block-container { padding-left: .65rem; padding-right: .65rem; padding-bottom: 4rem; }
+        .premium-header, .market-header { padding: 17px; }
+        .premium-header h1, .market-header h1 { font-size: 1.15rem !important; }
+        .premium-header p, .market-header p { font-size: 0.8rem; }
+        .card, .info-card { padding: 13px; }
+        .kpi-card { min-height: 88px; padding: 12px; }
+        .kpi-value, .info-value { font-size: 1.25rem; }
+        .product-card { padding: 14px; }
+        .product-name { font-size: 1.05rem; }
+        .price-hero { padding: 22px 16px; }
+        .price-hero .price-value { font-size: 2.3rem; }
+        .stButton>button { height: auto !important; min-height: 46px !important; }
+        div[data-testid="stFormSubmitButton"] > button { min-height: 46px; }
+        .app-footer { font-size: 0.72rem; padding-top: 20px; }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -1189,22 +940,15 @@ def pantalla_login():
     with c_log2:
         with st.container(border=True):
             st.markdown(
-                f"""
-                <div style='text-align: center; padding-bottom: 12px;'>
-                    <div style='padding: 4px 0 12px 0;'>
-                        {logo_tag(72)}
-                    </div>
-                    <span style='font-size: 0.75rem; font-weight: 700; letter-spacing: 1.5px; color: #EC3237;'>
-                        TIENDAS PREMIUM
-                    </span>
-                    <h3 style='margin: 4px 0 0 0; font-weight: 600; color: #111827; font-size: 1.1rem;'>
-                        Iniciar Sesión
-                    </h3>
-                </div>
-                """,
+                f'<div style="text-align:center; padding: 8px 0 12px 0;">{logo_tag(72)}</div>',
                 unsafe_allow_html=True,
             )
-
+            st.markdown("""
+                <div style='text-align: center; padding-bottom: 12px;'>
+                    <span style='font-size: 0.75rem; font-weight: 700; letter-spacing: 1.5px; color: #EC3237;'>TIENDAS PREMIUM</span>
+                    <h3 style='margin: 4px 0 0 0; font-weight: 600; color: #111827; font-size: 1.1rem;'>Iniciar Sesión</h3>
+                </div>
+            """, unsafe_allow_html=True)
             usuario = st.text_input(
                 "Usuario",
                 placeholder="Ingresa tu usuario",
@@ -1933,44 +1677,71 @@ def pantalla_admin():
 # SIDEBAR
 # =========================================================
 
+def _cambio_menu():
+    """Callback del menú lateral: se ejecuta ANTES del rerun, por lo que la
+    página queda actualizada con un solo clic."""
+    st.session_state.pagina = st.session_state.get("nav_menu", "Inicio")
+
+
 def sidebar():
     usuario = st.session_state.usuario
     rol = str(usuario.get("Rol", "CONTADOR")).upper()
-    rol_color = "#dbeafe;color:#1d4ed8" if rol == "ADMIN" else "#dcfce7;color:#166534"
+    nombre_usuario = safe_text(usuario.get("NombreCompleto", ""))
+    login_usuario = safe_text(usuario.get("Usuario", ""))
+
+    # --- SIDEBAR (mismo diseño y estructura que App 43) ---
     st.sidebar.markdown(
-        f"<div style='display:flex;align-items:center;gap:10px;margin-bottom:8px;'>"
-        f"{logo_tag(38)}<span style='font-size:1.2rem;font-weight:850;'>Tiendas Premium</span></div>",
+        f'<div style="text-align:center; padding: 8px 0 14px 0;">{logo_tag(58)}</div>',
         unsafe_allow_html=True,
     )
-    st.sidebar.markdown(
-        f"<div style='font-size:.85rem;color:#374151;margin-bottom:4px;'>{safe_text(usuario.get('NombreCompleto',''))}</div>"
-        f"<span style='display:inline-block;background:{rol_color};padding:2px 10px;border-radius:999px;"
-        f"font-size:.68rem;font-weight:800;letter-spacing:.03em;'>{safe_text(rol)}</span>",
-        unsafe_allow_html=True,
-    )
-    st.sidebar.divider()
+    st.sidebar.markdown("""
+        <div style='padding: 8px 0 16px 0;'>
+            <div style='font-size: 0.85rem; font-weight: 700; letter-spacing: 1px; color: #FFFFFF;'>
+                TIENDAS <span style='color: #EC3237;'>PREMIUM</span>
+            </div>
+            <div style='font-size: 0.7rem; color: #6B7280; margin-top:2px;'>Sistema de Inventario</div>
+        </div>
+    """, unsafe_allow_html=True)
+
+    st.sidebar.markdown(f"""
+        <div style='background-color: #1F2937; padding: 10px 12px; border-radius: 6px; margin-bottom: 16px;'>
+            <div style='font-size: 0.8rem; font-weight: 600; color: #F9FAFB;'>{nombre_usuario}</div>
+            <div style='font-size: 0.68rem; color: #9CA3AF; text-transform: uppercase;'>{safe_text(rol)} • USUARIO {login_usuario}</div>
+        </div>
+    """, unsafe_allow_html=True)
 
     opciones = ["Inicio", "Precios", "Sesión", "Inventario", "Resultados"]
     if rol == "ADMIN":
         opciones.append("Administración")
 
+    # Sincroniza el menú con la página actual (por ejemplo, cuando un botón
+    # de la pantalla cambia de página). Se hace ANTES de crear el radio.
     actual = st.session_state.get("pagina", "Inicio")
-    try:
-        index = opciones.index(actual)
-    except ValueError:
-        index = 0
-    seleccion = st.sidebar.radio("Menú", opciones, index=index)
+    if actual not in opciones:
+        actual = "Inicio"
+        st.session_state.pagina = actual
+    if st.session_state.get("nav_menu") != actual:
+        st.session_state["nav_menu"] = actual
+
+    seleccion = st.sidebar.radio(
+        "Navegación",
+        opciones,
+        key="nav_menu",
+        on_change=_cambio_menu,
+    )
     st.session_state.pagina = seleccion
 
-    st.sidebar.divider()
-    if st.sidebar.button("🔄 Actualizar datos", use_container_width=True):
+    st.sidebar.markdown("<br><br>", unsafe_allow_html=True)
+    if st.sidebar.button("Actualizar Datos", use_container_width=True, key="sb_actualizar_datos"):
         actualizar_datos()
         st.rerun()
 
-    if st.sidebar.button("🚪 Cerrar sesión", use_container_width=True):
-        for key in ["autenticado", "usuario", "pagina", "sesion_actual", "codigo_pendiente", "producto_pendiente", "modo_inventario", "ultimo_codigo_scan", "precio_producto", "precio_modo", "precio_ultimo_codigo_scan"]:
+    st.sidebar.markdown('<div class="btn-logout">', unsafe_allow_html=True)
+    if st.sidebar.button("Cerrar Sesión", use_container_width=True, key="sb_cerrar_sesion"):
+        for key in ["autenticado", "usuario", "pagina", "nav_menu", "sesion_actual", "codigo_pendiente", "producto_pendiente", "modo_inventario", "ultimo_codigo_scan", "precio_producto", "precio_modo", "precio_ultimo_codigo_scan"]:
             st.session_state.pop(key, None)
         st.rerun()
+    st.sidebar.markdown('</div>', unsafe_allow_html=True)
 
     st.sidebar.caption("Cache: inventario 60s · usuarios 5min · conteos/sesiones 30s")
 
