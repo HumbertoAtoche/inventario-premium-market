@@ -5,6 +5,7 @@ import hashlib
 import io
 import os
 import re
+import time
 import html
 import base64
 import mimetypes
@@ -91,6 +92,20 @@ HEADERS_RESUMEN = [
 ]
 
 HEADERS_USUARIOS = ["Usuario", "NombreCompleto", "Rol", "Password", "Estado"]
+HEADERS_AUDITORIA = ["FechaHora", "Usuario", "NombreCompleto", "Accion", "Detalle", "IdSesion"]
+NOMBRE_HOJA_AUDITORIA = "Auditoria"  # opcional: la app la crea sola la primera vez que se necesita
+
+# ---------------------------------------------------------
+# REGLAS DE CONTROL — ajústalas a la realidad de tu operación
+# ---------------------------------------------------------
+META_EXACTITUD = 98.0          # % de exactitud objetivo por sesión
+UMBRAL_DIF_SOLES = 200.0       # diferencia >= S/ 200 => exige confirmar el conteo
+UMBRAL_DIF_UNIDADES = 10       # diferencia >= 10 unidades Y ...
+UMBRAL_DIF_PORCENTAJE = 30.0   # ... >= 30 % del stock del sistema => exige confirmar el conteo
+CONTEO_CIEGO = False           # True: el CONTADOR no ve el stock del sistema mientras cuenta
+HORAS_SESION_ALERTA = 24       # alerta si una sesión lleva más de 24 h abierta
+MAX_INTENTOS_LOGIN = 5         # intentos fallidos antes de bloquear el ingreso
+BLOQUEO_LOGIN_SEGUNDOS = 300   # duración del bloqueo (5 minutos)
 
 # =========================================================
 # ESTILOS
@@ -581,6 +596,8 @@ def actualizar_datos():
     cargar_usuarios.clear()
     cargar_conteos.clear()
     cargar_sesiones.clear()
+    cargar_resumenes.clear()
+    cargar_auditoria.clear()
 
 # =========================================================
 # CARGADORES — SOLO LECTURAS CACHEADAS
@@ -648,6 +665,116 @@ def cargar_resumenes():
     records = ws.get_all_records()
     df = pd.DataFrame(records)
     return normalizar_df(df, HEADERS_RESUMEN)
+
+# =========================================================
+# AUDITORÍA Y REGLAS DE CONTROL
+# =========================================================
+
+@st.cache_resource(show_spinner=False)
+def _hoja_auditoria_resource():
+    """Devuelve la hoja de auditoría (la crea si no existe). Si falla, no se cachea."""
+    spreadsheet = conectar_google()
+    try:
+        return spreadsheet.worksheet(NOMBRE_HOJA_AUDITORIA)
+    except gspread.exceptions.WorksheetNotFound:
+        ws = spreadsheet.add_worksheet(title=NOMBRE_HOJA_AUDITORIA, rows=1000, cols=len(HEADERS_AUDITORIA))
+        ws.append_row(HEADERS_AUDITORIA, value_input_option="RAW")
+        return ws
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def cargar_auditoria():
+    try:
+        ws = _hoja_auditoria_resource()
+        df = pd.DataFrame(ws.get_all_records())
+    except Exception:
+        return pd.DataFrame(columns=HEADERS_AUDITORIA)
+    return normalizar_df(df, HEADERS_AUDITORIA)
+
+
+def registrar_auditoria(accion, detalle="", id_sesion=""):
+    """Bitácora de acciones críticas. Nunca interrumpe la operación principal."""
+    try:
+        usuario = st.session_state.get("usuario") or {}
+        fila = [
+            ahora(),
+            usuario.get("Usuario", "SISTEMA"),
+            usuario.get("NombreCompleto", ""),
+            str(accion),
+            str(detalle),
+            str(id_sesion),
+        ]
+        _hoja_auditoria_resource().append_row(fila, value_input_option="RAW")
+        cargar_auditoria.clear()
+    except Exception:
+        pass
+
+
+def _claves_df(df):
+    """Clave única por producto: código de barras, o código de producto, o nombre."""
+    barras = df["CodigoBarras"].map(limpiar_codigo)
+    codigo = df["CodigoProducto"].map(limpiar_codigo)
+    nombre = df["Producto"].astype(str).str.strip()
+    return barras.where(barras != "", codigo).where(lambda s: s != "", nombre)
+
+
+def conteos_vigentes(df):
+    """Último conteo de cada producto dentro de cada sesión (respeta los reconteos)."""
+    if df is None or df.empty:
+        return df if df is not None else pd.DataFrame(columns=HEADERS_CONTEO)
+    d = df.copy()
+    d["_clave"] = d["IdSesion"].astype(str) + "|" + _claves_df(d)
+    d = d.sort_values("FechaHora", kind="stable").drop_duplicates("_clave", keep="last")
+    return d.drop(columns="_clave").sort_index()
+
+
+def contar_productos_sesion(conteos, id_sesion):
+    """Productos distintos contados en una sesión (un reconteo no suma dos veces)."""
+    if conteos is None or conteos.empty:
+        return 0
+    dc = conteos[conteos["IdSesion"].astype(str) == str(id_sesion)]
+    return len(conteos_vigentes(dc))
+
+
+def ultimo_conteo_producto(id_sesion, producto):
+    df = cargar_conteos()
+    if df.empty:
+        return None
+    dc = df[df["IdSesion"].astype(str) == str(id_sesion)]
+    if dc.empty:
+        return None
+    vig = conteos_vigentes(dc)
+    clave = (
+        limpiar_codigo(producto.get("CodigoBarras", ""))
+        or limpiar_codigo(producto.get("CodigoProducto", ""))
+        or str(producto.get("Producto", "")).strip()
+    )
+    coincide = vig[_claves_df(vig) == clave]
+    return coincide.iloc[-1].to_dict() if not coincide.empty else None
+
+
+def inventario_de_sucursal(inv, sucursal):
+    """Productos que corresponden a la sucursal de la sesión.
+    Si el nombre de la sucursal no coincide con ningún producto, devuelve todo el inventario
+    (así nunca queda en cero por una diferencia de escritura)."""
+    if inv is None or inv.empty:
+        return inv
+    suc = str(sucursal or "").strip().lower()
+    if not suc:
+        return inv
+    filtrado = inv[inv["Sucursal"].astype(str).str.strip().str.lower() == suc]
+    return filtrado if not filtrado.empty else inv
+
+
+def es_diferencia_critica(stock_sistema, stock_fisico, costo):
+    """True si la diferencia es lo bastante grande como para exigir confirmación."""
+    dif = abs(limpiar_numero(stock_fisico) - limpiar_numero(stock_sistema))
+    if dif == 0:
+        return False
+    valor = dif * limpiar_numero(costo)
+    base = limpiar_numero(stock_sistema)
+    porcentaje = (dif / base * 100) if base > 0 else 100.0
+    return valor >= UMBRAL_DIF_SOLES or (dif >= UMBRAL_DIF_UNIDADES and porcentaje >= UMBRAL_DIF_PORCENTAJE)
 
 # =========================================================
 # OPERACIONES
@@ -720,7 +847,7 @@ def producto_ya_contado(id_sesion, codigo):
     return bool(((df["IdSesion"] == str(id_sesion)) & (df["CodigoBarras"].map(limpiar_codigo) == codigo)).any())
 
 
-def guardar_conteo(sesion, usuario, producto, stock_fisico, metodo="Escáner", observacion=""):
+def guardar_conteo(sesion, usuario, producto, stock_fisico, metodo="Escáner", observacion="", es_reconteo=False):
     stock_sistema = limpiar_numero(producto.get("StockSistema", 0))
     costo = limpiar_numero(producto.get("CostoUnitario", 0))
     stock_fisico = limpiar_numero(stock_fisico)
@@ -737,16 +864,26 @@ def guardar_conteo(sesion, usuario, producto, stock_fisico, metodo="Escáner", o
     else:
         tipo = "OK"
 
+    obs = observacion.strip()
+    if es_reconteo:
+        obs = ("[RECONTEO] " + obs).strip()
+
     fila = [
         sesion["IdSesion"], ahora(), usuario["Usuario"], usuario["NombreCompleto"],
         limpiar_codigo(producto.get("CodigoBarras", "")),
         limpiar_codigo(producto.get("CodigoProducto", "")),
         producto.get("Producto", ""), producto.get("Categoria", ""), producto.get("Sucursal", ""),
         stock_sistema, stock_fisico, diferencia, costo, valor_faltante, valor_sobrante,
-        costo_diferencia, tipo, metodo, observacion.strip()
+        costo_diferencia, tipo, metodo, obs
     ]
     obtener_hoja("conteos").append_row(fila, value_input_option="USER_ENTERED")
     cargar_conteos.clear()
+    if es_reconteo:
+        registrar_auditoria(
+            "RECONTEO",
+            f"{producto.get('Producto', '')} · físico {stock_fisico:,.0f} · sistema {stock_sistema:,.0f} · {tipo}",
+            sesion["IdSesion"],
+        )
     return tipo, diferencia, valor_faltante, valor_sobrante
 
 
@@ -758,10 +895,11 @@ def crear_sesion(nombre, sucursal, usuario, observacion=""):
     ]
     obtener_hoja("sesiones").append_row(fila, value_input_option="USER_ENTERED")
     cargar_sesiones.clear()
+    registrar_auditoria("CREAR_SESION", f"{nombre.strip()} · {sucursal.strip()}", id_sesion)
     return id_sesion
 
 
-def cerrar_sesion(id_sesion):
+def cerrar_sesion(id_sesion, detalle=""):
     ws = obtener_hoja("sesiones")
     # Acción poco frecuente: una sola lectura directa para localizar la fila.
     valores = ws.get_all_values()
@@ -777,6 +915,7 @@ def cerrar_sesion(id_sesion):
                 ws.update_cell(n, idx_fin + 1, ahora())
                 ws.update_cell(n, idx_estado + 1, "CERRADA")
                 cargar_sesiones.clear()
+                registrar_auditoria("CERRAR_SESION", detalle, id_sesion)
                 return True
     except Exception:
         raise
@@ -791,14 +930,14 @@ def calcular_resumen(id_sesion):
     if conteos.empty:
         dc = pd.DataFrame(columns=HEADERS_CONTEO)
     else:
-        dc = conteos[conteos["IdSesion"].astype(str) == str(id_sesion)].copy()
+        dc = conteos_vigentes(conteos[conteos["IdSesion"].astype(str) == str(id_sesion)].copy())
 
     ses = sesiones[sesiones["IdSesion"].astype(str) == str(id_sesion)] if not sesiones.empty else pd.DataFrame()
     nombre = ses.iloc[0]["NombreSesion"] if not ses.empty else str(id_sesion)
     sucursal = ses.iloc[0]["Sucursal"] if not ses.empty else ""
     estado = ses.iloc[0]["Estado"] if not ses.empty else ""
 
-    productos_contados = dc["CodigoBarras"].replace("", pd.NA).dropna().nunique() if not dc.empty else 0
+    productos_contados = len(dc)
     productos_ok = int((dc["TipoDiferencia"] == "OK").sum()) if not dc.empty else 0
     productos_faltantes = int((dc["TipoDiferencia"] == "FALTANTE").sum()) if not dc.empty else 0
     productos_sobrantes = int((dc["TipoDiferencia"] == "SOBRANTE").sum()) if not dc.empty else 0
@@ -817,7 +956,7 @@ def calcular_resumen(id_sesion):
         "Fecha": fecha_actual(),
         "NombreSesion": nombre,
         "Sucursal": sucursal,
-        "ProductosSistema": len(inv),
+        "ProductosSistema": len(inventario_de_sucursal(inv, sucursal)),
         "ProductosContados": productos_contados,
         "ProductosOK": productos_ok,
         "ProductosFaltantes": productos_faltantes,
@@ -847,6 +986,155 @@ def crear_usuario(usuario, nombre, rol, password):
     fila = [usuario.strip(), nombre.strip(), rol.strip().upper(), hash_password(password), "ACTIVO"]
     obtener_hoja("usuarios").append_row(fila, value_input_option="USER_ENTERED")
     cargar_usuarios.clear()
+    registrar_auditoria("CREAR_USUARIO", f"{usuario.strip()} · {rol.strip().upper()}")
+
+# =========================================================
+# ANÁLISIS (funciones de cálculo puras, sin escrituras)
+# =========================================================
+
+def generar_ajustes(dc):
+    """Lista de ajustes de stock lista para cargar en el sistema contable/ERP."""
+    cols = ["CodigoBarras", "CodigoProducto", "Producto", "Sucursal", "StockSistema",
+            "StockFisico", "Ajuste", "TipoAjuste", "CostoUnitario", "ImpactoSoles"]
+    if dc is None or dc.empty:
+        return pd.DataFrame(columns=cols)
+    d = dc[dc["Diferencia"] != 0].copy()
+    if d.empty:
+        return pd.DataFrame(columns=cols)
+    d["Ajuste"] = d["Diferencia"]
+    d["TipoAjuste"] = d["Diferencia"].map(lambda x: "ENTRADA" if x > 0 else "SALIDA")
+    d["ImpactoSoles"] = d["CostoDiferencia"]
+    return d[cols].sort_values("ImpactoSoles").reset_index(drop=True)
+
+
+def clasificar_abc(inv, corte_a=80.0, corte_b=95.0):
+    """Clasificación ABC (Pareto) por valor de inventario a costo."""
+    cols = ["Clase", "Producto", "CodigoProducto", "Categoria", "StockSistema",
+            "CostoUnitario", "Valor", "% Valor", "% Acumulado"]
+    if inv is None or inv.empty:
+        return pd.DataFrame(columns=cols)
+    d = inv.copy()
+    d["Valor"] = d["StockSistema"].clip(lower=0) * d["CostoUnitario"]
+    d = d[d["Valor"] > 0].sort_values("Valor", ascending=False)
+    if d.empty:
+        return pd.DataFrame(columns=cols)
+    total = d["Valor"].sum()
+    d["% Valor"] = d["Valor"] / total * 100
+    d["% Acumulado"] = d["% Valor"].cumsum()
+    previo = d["% Acumulado"] - d["% Valor"]
+    d["Clase"] = "C"
+    d.loc[previo < corte_b, "Clase"] = "B"
+    d.loc[previo < corte_a, "Clase"] = "A"
+    return d[cols].reset_index(drop=True)
+
+
+def diagnosticar_inventario(inv):
+    """Reglas de calidad de datos. Devuelve [(regla, severidad, DataFrame)]."""
+    if inv is None or inv.empty:
+        return []
+    barras = inv["CodigoBarras"].map(limpiar_codigo)
+    duplicado = (barras != "") & barras.duplicated(keep=False)
+    reglas = [
+        ("Stock negativo", "Alta", inv["StockSistema"] < 0),
+        ("Sin costo unitario", "Alta", inv["CostoUnitario"] <= 0),
+        ("Precio menor al costo", "Alta",
+         (inv["PrecioVenta"] > 0) & (inv["CostoUnitario"] > 0) & (inv["PrecioVenta"] < inv["CostoUnitario"])),
+        ("Sin precio de venta", "Media", inv["PrecioVenta"] <= 0),
+        ("Código de barras duplicado", "Media", duplicado),
+        ("Sin código de barras", "Media", barras == ""),
+        ("Sin categoría", "Baja", inv["Categoria"].astype(str).str.strip() == ""),
+        ("Stock en cero", "Info", inv["StockSistema"] == 0),
+    ]
+    return [(nombre, sev, inv[mask].copy()) for nombre, sev, mask in reglas]
+
+
+def productos_pendientes(inv, conteos, id_sesion):
+    """Productos del inventario que todavía no se cuentan en la sesión, del más valioso al menos."""
+    if inv is None or inv.empty:
+        return pd.DataFrame()
+    contados = set()
+    if conteos is not None and not conteos.empty:
+        dc = conteos[conteos["IdSesion"].astype(str) == str(id_sesion)]
+        if not dc.empty:
+            contados = set(_claves_df(dc))
+    d = inv[~_claves_df(inv).isin(contados)].copy()
+    d["Valor"] = d["StockSistema"].clip(lower=0) * d["CostoUnitario"]
+    return d.sort_values("Valor", ascending=False)
+
+
+def productividad_contadores(conteos, id_sesion=None):
+    cols = ["Contador", "Conteos", "OK", "Faltantes", "Sobrantes", "Exactitud %",
+            "Horas activas", "Conteos/hora", "Impacto neto S/"]
+    if conteos is None or conteos.empty:
+        return pd.DataFrame(columns=cols)
+    d = conteos.copy()
+    if id_sesion:
+        d = d[d["IdSesion"].astype(str) == str(id_sesion)]
+    # Solo la primera pasada de cada producto: los reconteos no inflan la productividad ni la exactitud.
+    d = d[~d["Observacion"].astype(str).str.startswith("[RECONTEO]")]
+    if d.empty:
+        return pd.DataFrame(columns=cols)
+    d["_dt"] = pd.to_datetime(d["FechaHora"], errors="coerce")
+    filas = []
+    for nombre, g in d.groupby("NombreUsuario"):
+        n = len(g)
+        ok = int((g["TipoDiferencia"] == "OK").sum())
+        horas = float("nan")
+        ritmo = float("nan")
+        if id_sesion:
+            marcas = g["_dt"].dropna()
+            if len(marcas) > 1:
+                horas = (marcas.max() - marcas.min()).total_seconds() / 3600
+                if horas >= 0.05:
+                    ritmo = n / horas
+        filas.append({
+            "Contador": nombre,
+            "Conteos": n,
+            "OK": ok,
+            "Faltantes": int((g["TipoDiferencia"] == "FALTANTE").sum()),
+            "Sobrantes": int((g["TipoDiferencia"] == "SOBRANTE").sum()),
+            "Exactitud %": round(ok / n * 100, 1) if n else 0.0,
+            "Horas activas": round(horas, 2) if horas == horas else float("nan"),
+            "Conteos/hora": round(ritmo, 1) if ritmo == ritmo else float("nan"),
+            "Impacto neto S/": round(float(g["CostoDiferencia"].sum()), 2),
+        })
+    return pd.DataFrame(filas, columns=cols).sort_values("Conteos", ascending=False).reset_index(drop=True)
+
+
+def tendencia_sesiones(resumenes):
+    if resumenes is None or resumenes.empty:
+        return pd.DataFrame()
+    d = resumenes.copy()
+    for col in ["ExactitudInventario", "DesfaseNeto", "ValorFaltantes", "ValorSobrantes", "ProductosContados"]:
+        d[col] = pd.to_numeric(d[col], errors="coerce").fillna(0)
+    d = d.drop_duplicates("IdSesion", keep="last").sort_values("Fecha", kind="stable")
+    d["Etiqueta"] = d["Fecha"].astype(str) + " · " + d["NombreSesion"].astype(str)
+    repetidos = d.groupby("Etiqueta").cumcount()
+    d["Etiqueta"] = d["Etiqueta"] + repetidos.map(lambda i: "" if i == 0 else f" ({i + 1})")
+    return d.reset_index(drop=True)
+
+
+def alertas_operativas(inv, sesiones):
+    """Alertas breves para el dashboard de inicio."""
+    alertas = []
+    if sesiones is not None and not sesiones.empty:
+        abiertas = sesiones[sesiones["Estado"].str.upper() == "ABIERTA"]
+        for _, s in abiertas.iterrows():
+            inicio = pd.to_datetime(s["FechaInicio"], errors="coerce")
+            if pd.notna(inicio):
+                horas = (datetime.now() - inicio.to_pydatetime()).total_seconds() / 3600
+                if horas >= HORAS_SESION_ALERTA:
+                    alertas.append(
+                        f"La sesión **{s['NombreSesion']}** lleva {horas:,.0f} h abierta. Revisa si ya debe cerrarse."
+                    )
+    if inv is not None and not inv.empty:
+        negativos = int((inv["StockSistema"] < 0).sum())
+        sin_costo = int((inv["CostoUnitario"] <= 0).sum())
+        if negativos:
+            alertas.append(f"Hay **{negativos:,}** producto(s) con stock negativo en el sistema.")
+        if sin_costo:
+            alertas.append(f"Hay **{sin_costo:,}** producto(s) sin costo unitario: su valor de inventario está subestimado.")
+    return alertas
 
 # =========================================================
 # UI HELPERS
@@ -960,7 +1248,11 @@ def pantalla_login():
             )
             st.markdown("<br>", unsafe_allow_html=True)
 
-            if st.button("Ingresar al Sistema", use_container_width=True):
+            segundos_bloqueo = int(float(st.session_state.get("login_bloqueo_hasta", 0.0)) - time.time())
+            if segundos_bloqueo > 0:
+                st.error(f"Demasiados intentos fallidos. Intenta nuevamente en {segundos_bloqueo // 60 + 1} min.")
+
+            if st.button("Ingresar al Sistema", use_container_width=True, disabled=segundos_bloqueo > 0):
                 try:
                     registro = autenticar(usuario, password)
                     if registro:
@@ -970,9 +1262,19 @@ def pantalla_login():
                         st.session_state.codigo_pendiente = ""
                         st.session_state.producto_pendiente = None
                         st.session_state.modo_inventario = "scanner"
+                        st.session_state.login_intentos = 0
+                        registrar_auditoria("LOGIN", "Inicio de sesión")
                         st.rerun()
                     else:
-                        st.error("Credenciales incorrectas")
+                        intentos = int(st.session_state.get("login_intentos", 0)) + 1
+                        if intentos >= MAX_INTENTOS_LOGIN:
+                            st.session_state.login_intentos = 0
+                            st.session_state.login_bloqueo_hasta = time.time() + BLOQUEO_LOGIN_SEGUNDOS
+                            registrar_auditoria("LOGIN_BLOQUEADO", f"Usuario ingresado: {str(usuario).strip()}")
+                            st.error("Demasiados intentos fallidos. Acceso bloqueado por 5 minutos.")
+                        else:
+                            st.session_state.login_intentos = intentos
+                            st.error(f"Credenciales incorrectas ({intentos}/{MAX_INTENTOS_LOGIN})")
                 except Exception as exc:
                     mostrar_error_google(exc, "inicio de sesión")
 
@@ -1008,6 +1310,12 @@ def pantalla_inicio():
     with k2: kpi("Stock sistema", f"{stock_total:,.0f}", "unidades")
     with k3: kpi("Valor inventario", formato_soles(valor_inventario), "a costo")
     with k4: kpi("Sesiones abiertas", str(sesiones_abiertas), "en curso")
+
+    alertas = alertas_operativas(inv, sesiones)
+    if alertas:
+        st.markdown("<div class='section-title'>🚨 Alertas</div>", unsafe_allow_html=True)
+        for texto_alerta in alertas:
+            st.warning(texto_alerta)
 
     st.markdown("<div class='section-title'>⚡ Acciones rápidas</div>", unsafe_allow_html=True)
     a1, a2, a3, a4 = st.columns(4)
@@ -1064,12 +1372,25 @@ def pantalla_sesion():
             unsafe_allow_html=True,
         )
         conteos = cargar_conteos()
-        total = int((conteos["IdSesion"].astype(str) == str(sesion["IdSesion"])).sum()) if not conteos.empty else 0
+        total = contar_productos_sesion(conteos, sesion["IdSesion"])
         c1, c2 = st.columns(2)
         with c1: kpi("Productos contados", f"{total:,}", "en esta sesión")
         with c2:
             resumen = calcular_resumen(sesion["IdSesion"])
             kpi("Desfase neto", formato_soles(resumen["DesfaseNeto"]), "faltantes - sobrantes")
+
+        total_inv = len(inventario_de_sucursal(cargar_inventario(), sesion["Sucursal"]))
+        pendientes = max(total_inv - total, 0)
+        confirmar_cierre = True
+        if pendientes > 0:
+            st.warning(
+                f"Quedan {pendientes:,} producto(s) sin contar ({total:,} de {total_inv:,}). "
+                "Si cierras ahora, esos productos no formarán parte del resultado."
+            )
+            confirmar_cierre = st.checkbox(
+                "Entiendo que hay productos sin contar y deseo cerrar la sesión igualmente",
+                key=f"confirmar_cierre_{sesion['IdSesion']}",
+            )
 
         st.markdown("<div class='section-title'>Acciones</div>", unsafe_allow_html=True)
         a1, a2 = st.columns(2)
@@ -1078,10 +1399,14 @@ def pantalla_sesion():
                 st.session_state.pagina = "Inventario"
                 st.rerun()
         with a2:
-            if st.button("🔒 Cerrar sesión", use_container_width=True):
+            if st.button("🔒 Cerrar sesión", use_container_width=True, disabled=not confirmar_cierre):
                 try:
                     resumen = calcular_resumen(sesion["IdSesion"])
-                    if not cerrar_sesion(sesion["IdSesion"]):
+                    detalle_cierre = (
+                        f"Contados {total:,}/{total_inv:,} · Exactitud {resumen['ExactitudInventario']:.1f}% · "
+                        f"Desfase {formato_soles(resumen['DesfaseNeto'])}"
+                    )
+                    if not cerrar_sesion(sesion["IdSesion"], detalle_cierre):
                         st.error("No se encontró la sesión para cerrar.")
                     else:
                         resumen["Estado"] = "CERRADA"
@@ -1125,7 +1450,7 @@ def pantalla_scanner(sesion=None):
         )
     if sesion:
         conteos = cargar_conteos()
-        n = int((conteos["IdSesion"].astype(str) == str(sesion["IdSesion"])).sum()) if not conteos.empty else 0
+        n = contar_productos_sesion(conteos, sesion["IdSesion"])
         with c_stats:
             kpi("Contados", f"{n:,}", "en esta sesión")
 
@@ -1190,15 +1515,40 @@ def pantalla_scanner(sesion=None):
 
 def pantalla_producto(producto, sesion):
     codigo = limpiar_codigo(producto.get("CodigoBarras", ""))
-    if producto_ya_contado(sesion["IdSesion"], codigo):
+    ya_contado = producto_ya_contado(sesion["IdSesion"], codigo)
+    # El reconteo solo aplica a productos ya contados (evita etiquetar mal si la bandera quedó activa).
+    es_reconteo = bool(st.session_state.get("reconteo_activo", False)) and ya_contado
+    previo = ultimo_conteo_producto(sesion["IdSesion"], producto)
+
+    if ya_contado and not es_reconteo:
         st.warning("⚠️ Este producto ya fue contado en esta sesión.")
-        if st.button("↩️ Volver al escáner", use_container_width=True):
-            st.session_state.producto_pendiente = None
-            st.session_state.codigo_pendiente = ""
-            st.rerun()
+        if previo:
+            st.info(
+                f"Último conteo: {limpiar_numero(previo.get('StockFisico', 0)):,.0f} unidades "
+                f"por {previo.get('NombreUsuario', '')} · {previo.get('FechaHora', '')}."
+            )
+        c_re, c_back = st.columns(2)
+        with c_re:
+            if st.button("🔁 Hacer reconteo", type="primary", use_container_width=True):
+                st.session_state.reconteo_activo = True
+                st.rerun()
+        with c_back:
+            if st.button("↩️ Volver al escáner", use_container_width=True):
+                st.session_state.producto_pendiente = None
+                st.session_state.codigo_pendiente = ""
+                st.rerun()
         return
 
-    header("Conteo físico", "Compara el stock del sistema con el conteo real")
+    if es_reconteo:
+        header("Reconteo físico", "Verifica nuevamente la cantidad: el último conteo será reemplazado en los resultados")
+        if previo:
+            st.info(
+                f"Conteo anterior: {limpiar_numero(previo.get('StockFisico', 0)):,.0f} unidades "
+                f"por {previo.get('NombreUsuario', '')} · {previo.get('FechaHora', '')}. "
+                "El historial se conserva en el detalle."
+            )
+    else:
+        header("Conteo físico", "Compara el stock del sistema con el conteo real")
     st.markdown(
         f"""
         <div class='product-card'>
@@ -1210,9 +1560,11 @@ def pantalla_producto(producto, sesion):
         unsafe_allow_html=True,
     )
 
+    ciego = CONTEO_CIEGO and str(st.session_state.usuario.get("Rol", "")).upper() != "ADMIN"
+    stock_txt = "🔒 Oculto" if ciego else f"{limpiar_numero(producto.get('StockSistema',0)):,.0f}"
     c1, c2, c3 = st.columns(3)
     with c1:
-        st.markdown(f"<div class='stock-box'><div class='stock-label'>Stock sistema</div><div class='stock-number'>{limpiar_numero(producto.get('StockSistema',0)):,.0f}</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='stock-box'><div class='stock-label'>Stock sistema</div><div class='stock-number'>{stock_txt}</div></div>", unsafe_allow_html=True)
     with c2:
         st.markdown(f"<div class='stock-box'><div class='stock-label'>Costo unitario</div><div class='stock-number'>{formato_soles(producto.get('CostoUnitario',0))}</div></div>", unsafe_allow_html=True)
     with c3:
@@ -1230,27 +1582,42 @@ def pantalla_producto(producto, sesion):
     costo = limpiar_numero(producto.get("CostoUnitario", 0))
 
     if diferencia < 0:
-        impacto = abs(diferencia) * costo
-        st.error(f"🔴 Faltante: {abs(diferencia):,.0f} unidades · {formato_soles(impacto)}")
         tipo = "FALTANTE"
+        if not ciego:
+            st.error(f"🔴 Faltante: {abs(diferencia):,.0f} unidades · {formato_soles(abs(diferencia) * costo)}")
     elif diferencia > 0:
-        impacto = diferencia * costo
-        st.success(f"🟢 Sobrante: {diferencia:,.0f} unidades · {formato_soles(impacto)}")
         tipo = "SOBRANTE"
+        if not ciego:
+            st.success(f"🟢 Sobrante: {diferencia:,.0f} unidades · {formato_soles(diferencia * costo)}")
     else:
-        st.success("🟢 Stock exacto: no existe diferencia.")
         tipo = "OK"
+        if not ciego:
+            st.success("🟢 Stock exacto: no existe diferencia.")
+    if ciego:
+        st.info("🔒 Conteo ciego: el resultado se calculará al guardar.")
+
+    confirmado = True
+    if es_diferencia_critica(producto.get("StockSistema", 0), fisico, costo):
+        st.warning(
+            "⚠️ La cantidad difiere de forma significativa del sistema. Revisa estantes, almacén y otras "
+            "ubicaciones, y verifica que el producto sea el correcto antes de guardar."
+        )
+        confirmado = st.checkbox(
+            "Confirmo que el conteo es correcto",
+            key=f"confirma_dif_{codigo}_{sesion['IdSesion']}",
+        )
 
     metodo = st.selectbox("Método de conteo", ["Escáner", "Búsqueda manual", "Código manual"])
     observacion = st.text_area("Observación", placeholder="Opcional")
 
     c1, c2 = st.columns(2)
     with c1:
-        if st.button("💾 Guardar conteo", type="primary", use_container_width=True):
+        if st.button("💾 Guardar conteo", type="primary", use_container_width=True, disabled=not confirmado):
             try:
-                guardar_conteo(sesion, st.session_state.usuario, producto, fisico, metodo, observacion)
-                st.success(f"Conteo guardado: {tipo}")
+                guardar_conteo(sesion, st.session_state.usuario, producto, fisico, metodo, observacion, es_reconteo=es_reconteo)
+                st.success(f"{'Reconteo' if es_reconteo else 'Conteo'} guardado: {tipo}")
                 sonido_confirmacion()
+                st.session_state.reconteo_activo = False
                 st.session_state.producto_pendiente = None
                 st.session_state.codigo_pendiente = ""
                 st.session_state.ultimo_codigo_scan = ""
@@ -1259,6 +1626,7 @@ def pantalla_producto(producto, sesion):
                 mostrar_error_google(exc, "guardar conteo")
     with c2:
         if st.button("↩️ Cancelar", use_container_width=True):
+            st.session_state.reconteo_activo = False
             st.session_state.producto_pendiente = None
             st.session_state.codigo_pendiente = ""
             st.rerun()
@@ -1443,8 +1811,8 @@ def pantalla_inventario():
         return
 
     conteos = cargar_conteos()
-    contados = int((conteos["IdSesion"].astype(str) == str(sesion["IdSesion"])).sum()) if not conteos.empty else 0
-    total = len(cargar_inventario())
+    contados = contar_productos_sesion(conteos, sesion["IdSesion"])
+    total = len(inventario_de_sucursal(cargar_inventario(), sesion["Sucursal"]))
     porcentaje = (contados / total * 100) if total else 0
 
     st.markdown(
@@ -1500,10 +1868,16 @@ def pantalla_resultados():
     ))
 
     resumen = calcular_resumen(seleccionado)
-    dc = conteos[conteos["IdSesion"].astype(str) == str(seleccionado)].copy() if not conteos.empty else pd.DataFrame()
+    dc_hist = conteos[conteos["IdSesion"].astype(str) == str(seleccionado)].copy() if not conteos.empty else pd.DataFrame()
+    dc = conteos_vigentes(dc_hist)  # último conteo de cada producto (respeta reconteos)
+    ajustes = generar_ajustes(dc)
 
     k1, k2, k3, k4 = st.columns(4)
-    with k1: kpi("Exactitud", f"{resumen['ExactitudInventario']:.1f}%", "productos OK")
+    if resumen["ProductosContados"]:
+        nota_exactitud = f"Meta {META_EXACTITUD:.0f}% · " + ("✅ cumple" if resumen["ExactitudInventario"] >= META_EXACTITUD else "⚠️ bajo la meta")
+    else:
+        nota_exactitud = f"Meta {META_EXACTITUD:.0f}%"
+    with k1: kpi("Exactitud", f"{resumen['ExactitudInventario']:.1f}%", nota_exactitud)
     with k2: kpi("Faltantes", formato_soles(resumen["ValorFaltantes"]), f"{resumen['UnidadesFaltantes']:,.0f} unidades")
     with k3: kpi("Sobrantes", formato_soles(resumen["ValorSobrantes"]), f"{resumen['UnidadesSobrantes']:,.0f} unidades")
     with k4: kpi("Desfase neto", formato_soles(resumen["DesfaseNeto"]), "pérdida neta valorizada")
@@ -1555,9 +1929,60 @@ def pantalla_resultados():
         else:
             st.bar_chart(por_categoria)
 
-    st.markdown("<div class='section-title'>📋 Detalle completo</div>", unsafe_allow_html=True)
     if not dc.empty:
-        detalle = dc.copy()
+        st.markdown("<div class='section-title'>🔁 Diferencias significativas a revisar</div>", unsafe_allow_html=True)
+        criticos = dc[dc.apply(lambda r: es_diferencia_critica(r["StockSistema"], r["StockFisico"], r["CostoUnitario"]), axis=1)].copy()
+        if criticos.empty:
+            st.success("No hay diferencias significativas que requieran reconteo.")
+        else:
+            cshow = criticos[["Producto", "CodigoProducto", "StockSistema", "StockFisico", "Diferencia", "CostoDiferencia", "NombreUsuario"]].copy()
+            cshow.columns = ["Producto", "Código", "Sistema", "Físico", "Dif.", "Impacto", "Usuario"]
+            st.dataframe(cshow, use_container_width=True, hide_index=True, column_config={
+                "Impacto": st.column_config.NumberColumn(format="S/ %.2f"),
+            })
+            sesion_abierta = obtener_sesion_abierta()
+            if sesion_abierta and str(sesion_abierta["IdSesion"]) == str(seleccionado):
+                idx_rec = st.selectbox(
+                    "Producto a recontar",
+                    list(criticos.index),
+                    format_func=lambda i: f"{criticos.loc[i, 'Producto']} · {criticos.loc[i, 'CodigoProducto']} ({criticos.loc[i, 'Diferencia']:+,.0f})",
+                )
+                if st.button("🔁 Iniciar reconteo", use_container_width=True):
+                    fila_rec = criticos.loc[idx_rec]
+                    prod_rec = buscar_por_codigo(fila_rec["CodigoBarras"]) or buscar_por_codigo(fila_rec["CodigoProducto"])
+                    if prod_rec:
+                        st.session_state.producto_pendiente = prod_rec
+                        st.session_state.codigo_pendiente = ""
+                        st.session_state.reconteo_activo = True
+                        st.session_state.modo_inventario = "scanner"
+                        st.session_state.pagina = "Inventario"
+                        st.rerun()
+                    else:
+                        st.error("No se encontró el producto en el inventario actual.")
+            else:
+                st.caption("El reconteo solo está disponible mientras la sesión esté abierta.")
+
+    st.markdown("<div class='section-title'>🧮 Ajustes sugeridos de stock</div>", unsafe_allow_html=True)
+    if ajustes.empty:
+        st.info("No hay diferencias que ajustar en esta sesión.")
+    else:
+        st.caption("Lista lista para cargar en tu sistema contable/ERP. Ajuste positivo = entrada, negativo = salida. Considera el último conteo de cada producto.")
+        st.dataframe(ajustes, use_container_width=True, hide_index=True, column_config={
+            "CostoUnitario": st.column_config.NumberColumn("Costo", format="S/ %.2f"),
+            "ImpactoSoles": st.column_config.NumberColumn("Impacto", format="S/ %.2f"),
+        })
+        st.download_button(
+            "📥 Descargar ajustes sugeridos (CSV)",
+            data=ajustes.to_csv(index=False).encode("utf-8-sig"),
+            file_name=f"ajustes_{seleccionado}.csv",
+            mime="text/csv",
+            use_container_width=True,
+        )
+
+    st.markdown("<div class='section-title'>📋 Detalle completo</div>", unsafe_allow_html=True)
+    if not dc_hist.empty:
+        st.caption("Los resultados usan el último conteo de cada producto; este detalle conserva todo el historial, incluidos los reconteos.")
+        detalle = dc_hist.copy()
         st.dataframe(detalle, use_container_width=True, hide_index=True)
 
         csv = detalle.to_csv(index=False).encode("utf-8-sig")
@@ -1582,8 +2007,9 @@ def pantalla_resultados():
     with c2:
         try:
             excel_bytes = exportar_excel({
-                "Detalle": dc if not dc.empty else pd.DataFrame(columns=HEADERS_CONTEO),
+                "Detalle": dc_hist if not dc_hist.empty else pd.DataFrame(columns=HEADERS_CONTEO),
                 "Resumen": pd.DataFrame([resumen]),
+                "Ajustes": ajustes,
             })
             st.download_button(
                 "📊 Descargar todo en Excel",
@@ -1596,12 +2022,240 @@ def pantalla_resultados():
             st.caption("Instala `openpyxl` en requirements.txt para habilitar la exportación a Excel.")
 
 # =========================================================
+# ANÁLISIS
+# =========================================================
+
+def _tab_pendientes():
+    inv = cargar_inventario()
+    sesion = obtener_sesion_abierta()
+    if inv.empty:
+        st.info("No hay productos en el inventario.")
+        return
+    if not sesion:
+        st.info("No hay una sesión abierta. Abre una sesión para ver qué productos faltan por contar.")
+        return
+    inv = inventario_de_sucursal(inv, sesion["Sucursal"])
+
+    pend = productos_pendientes(inv, cargar_conteos(), sesion["IdSesion"])
+    total = len(inv)
+    valor_total = float((inv["StockSistema"].clip(lower=0) * inv["CostoUnitario"]).sum())
+    valor_pend = float(pend["Valor"].sum()) if not pend.empty else 0.0
+    avance = (1 - len(pend) / total) * 100 if total else 0.0
+    cobertura = (1 - valor_pend / valor_total) * 100 if valor_total else 0.0
+
+    st.markdown(
+        f"<div class='mobile-note'>🧾 <b>{safe_text(sesion['NombreSesion'])}</b> · {safe_text(sesion['Sucursal'])}</div>",
+        unsafe_allow_html=True,
+    )
+    k1, k2, k3, k4 = st.columns(4)
+    with k1: kpi("Pendientes", f"{len(pend):,}", f"de {total:,} productos")
+    with k2: kpi("Avance", f"{avance:.1f}%", "por productos")
+    with k3: kpi("Valor pendiente", formato_soles(valor_pend), "a costo")
+    with k4: kpi("Cobertura por valor", f"{cobertura:.1f}%", "del valor ya contado")
+
+    c1, c2 = st.columns(2)
+    categorias = sorted([c for c in pend["Categoria"].unique() if c]) if not pend.empty else []
+    cat_sel = c1.multiselect("Categorías (vacío = todas)", categorias)
+    ocultar_cero = c2.checkbox("Ocultar productos con stock 0", value=True)
+
+    vista = pend.copy()
+    if cat_sel:
+        vista = vista[vista["Categoria"].isin(cat_sel)]
+    if ocultar_cero:
+        vista = vista[vista["StockSistema"] != 0]
+    if vista.empty:
+        st.success("🎉 No quedan productos pendientes con estos filtros.")
+        return
+
+    st.caption(f"{len(vista):,} producto(s) pendientes, ordenados por valor: cuenta primero los más costosos para reducir el riesgo.")
+    cols = ["Producto", "CodigoProducto", "CodigoBarras", "Categoria", "Marca", "Sucursal", "StockSistema", "Valor"]
+    st.dataframe(
+        vista[cols].head(300),
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "StockSistema": st.column_config.NumberColumn("Stock", format="%.0f"),
+            "Valor": st.column_config.NumberColumn("Valor a costo", format="S/ %.2f"),
+        },
+    )
+    st.download_button(
+        "📥 Descargar pendientes (CSV)",
+        data=vista[cols].to_csv(index=False).encode("utf-8-sig"),
+        file_name=f"pendientes_{sesion['IdSesion']}.csv",
+        mime="text/csv",
+        use_container_width=True,
+    )
+
+
+def _tab_abc():
+    abc = clasificar_abc(cargar_inventario())
+    if abc.empty:
+        st.info("No hay productos con stock y costo para clasificar.")
+        return
+    st.caption(
+        "Clasificación Pareto por valor de inventario a costo: **A** concentra el 80 % del valor, "
+        "**B** el siguiente 15 % y **C** el último 5 %. Prioriza el conteo y el control en la clase A."
+    )
+    columnas = st.columns(3)
+    for columna, clase in zip(columnas, ["A", "B", "C"]):
+        sub = abc[abc["Clase"] == clase]
+        with columna:
+            kpi(f"Clase {clase}", f"{len(sub):,} productos", f"{sub['% Valor'].sum():.1f}% del valor")
+
+    st.bar_chart(abc.groupby("Clase")["Valor"].sum())
+
+    clase_sel = st.selectbox("Ver clase", ["Todas", "A", "B", "C"])
+    vista = abc if clase_sel == "Todas" else abc[abc["Clase"] == clase_sel]
+    st.dataframe(
+        vista.head(300),
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "StockSistema": st.column_config.NumberColumn("Stock", format="%.0f"),
+            "CostoUnitario": st.column_config.NumberColumn("Costo", format="S/ %.2f"),
+            "Valor": st.column_config.NumberColumn(format="S/ %.2f"),
+            "% Valor": st.column_config.NumberColumn(format="%.2f%%"),
+            "% Acumulado": st.column_config.NumberColumn(format="%.1f%%"),
+        },
+    )
+    st.download_button(
+        "📥 Descargar clasificación ABC (CSV)",
+        data=abc.to_csv(index=False).encode("utf-8-sig"),
+        file_name="clasificacion_abc.csv",
+        mime="text/csv",
+        use_container_width=True,
+    )
+
+
+def _tab_salud():
+    inv = cargar_inventario()
+    if inv.empty:
+        st.info("No hay productos en el inventario.")
+        return
+    hallazgos = diagnosticar_inventario(inv)
+    afectados = set()
+    for _, sev, d in hallazgos:
+        if sev in ("Alta", "Media"):
+            afectados.update(d.index)
+    calidad = (1 - len(afectados) / len(inv)) * 100
+    altas = sum(len(d) for _, sev, d in hallazgos if sev == "Alta")
+
+    k1, k2, k3 = st.columns(3)
+    with k1: kpi("Calidad de datos", f"{calidad:.1f}%", "productos sin alertas altas/medias")
+    with k2: kpi("Hallazgos críticos", f"{altas:,}", "severidad alta")
+    with k3: kpi("Productos revisados", f"{len(inv):,}", "en el inventario")
+
+    resumen = pd.DataFrame([{"Regla": n, "Severidad": s, "Productos": len(d)} for n, s, d in hallazgos])
+    st.dataframe(resumen, use_container_width=True, hide_index=True)
+
+    con_datos = [(n, d) for n, s, d in hallazgos if not d.empty]
+    if not con_datos:
+        st.success("No se encontraron problemas en los datos del inventario.")
+        return
+    nombres = [n for n, _ in con_datos]
+    regla_sel = st.selectbox("Ver detalle de", nombres)
+    detalle = dict(con_datos)[regla_sel]
+    cols = ["Producto", "CodigoProducto", "CodigoBarras", "Categoria", "Sucursal", "StockSistema", "CostoUnitario", "PrecioVenta"]
+    st.dataframe(detalle[cols].head(300), use_container_width=True, hide_index=True)
+    try:
+        st.download_button(
+            "📊 Descargar todos los hallazgos (Excel)",
+            data=exportar_excel({n: d for n, d in con_datos}),
+            file_name="salud_datos_inventario.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
+        )
+    except Exception:
+        st.caption("Instala `openpyxl` para exportar a Excel.")
+
+
+def _tab_productividad():
+    conteos = cargar_conteos()
+    sesiones = cargar_sesiones()
+    if conteos.empty:
+        st.info("Todavía no hay conteos registrados.")
+        return
+    todas = "Todas las sesiones"
+    ids = sesiones.sort_values("FechaInicio", ascending=False)["IdSesion"].astype(str).tolist() if not sesiones.empty else []
+    nombres = {
+        str(r["IdSesion"]): f"{r['NombreSesion']} ({str(r['FechaInicio'])[:10]})"
+        for _, r in sesiones.iterrows()
+    } if not sesiones.empty else {}
+    sel = st.selectbox("Sesión", [todas] + ids, format_func=lambda x: x if x == todas else nombres.get(x, x))
+    df = productividad_contadores(conteos, None if sel == todas else sel)
+    if df.empty:
+        st.info("No hay conteos para la sesión seleccionada.")
+        return
+
+    ritmo_max = df["Conteos/hora"].max()
+    k1, k2, k3 = st.columns(3)
+    with k1: kpi("Conteos", f"{int(df['Conteos'].sum()):,}", "registros")
+    with k2: kpi("Contadores activos", f"{len(df):,}", "personas")
+    with k3: kpi("Mejor ritmo", f"{ritmo_max:,.0f}/h" if ritmo_max == ritmo_max else "—", "por sesión seleccionada")
+
+    st.bar_chart(df.set_index("Contador")["Conteos"])
+    st.dataframe(df, use_container_width=True, hide_index=True)
+    st.caption("La exactitud del contador mide qué porcentaje de sus conteos coincidió con el sistema en la primera pasada.")
+    st.download_button(
+        "📥 Descargar productividad (CSV)",
+        data=df.to_csv(index=False).encode("utf-8-sig"),
+        file_name="productividad_contadores.csv",
+        mime="text/csv",
+        use_container_width=True,
+    )
+
+
+def _tab_tendencia():
+    t = tendencia_sesiones(cargar_resumenes())
+    if t.empty:
+        st.info("Cierra al menos una sesión para ver la tendencia de exactitud y desfase.")
+        return
+
+    ultima = t.iloc[-1]
+    variacion = (ultima["ExactitudInventario"] - t.iloc[-2]["ExactitudInventario"]) if len(t) > 1 else None
+    k1, k2, k3 = st.columns(3)
+    with k1: kpi("Última exactitud", f"{ultima['ExactitudInventario']:.1f}%", f"Meta {META_EXACTITUD:.0f}%")
+    with k2: kpi("Variación", f"{variacion:+.1f} pp" if variacion is not None else "—", "frente a la sesión anterior")
+    with k3: kpi("Último desfase neto", formato_soles(ultima["DesfaseNeto"]), str(ultima["NombreSesion"]))
+
+    st.markdown("<div class='section-title'>📈 Exactitud por sesión</div>", unsafe_allow_html=True)
+    graf = t.set_index("Etiqueta")[["ExactitudInventario"]].rename(columns={"ExactitudInventario": "Exactitud %"})
+    graf["Meta"] = META_EXACTITUD
+    st.line_chart(graf)
+
+    st.markdown("<div class='section-title'>💸 Desfase neto por sesión</div>", unsafe_allow_html=True)
+    st.bar_chart(t.set_index("Etiqueta")["DesfaseNeto"])
+
+    vista = t[["Fecha", "NombreSesion", "Sucursal", "ProductosContados", "ExactitudInventario", "ValorFaltantes", "ValorSobrantes", "DesfaseNeto"]]
+    st.dataframe(vista, use_container_width=True, hide_index=True)
+
+
+def pantalla_analisis():
+    header("Análisis de inventario", "Prioriza el conteo, detecta problemas en los datos y mide el desempeño")
+    es_admin = str(st.session_state.usuario.get("Rol", "")).upper() == "ADMIN"
+    etiquetas = ["🎯 Pendientes", "🅰️ Análisis ABC"]
+    if es_admin:
+        etiquetas += ["🩺 Salud de datos", "👥 Productividad", "📈 Tendencia"]
+    tabs = st.tabs(etiquetas)
+    with tabs[0]:
+        _tab_pendientes()
+    with tabs[1]:
+        _tab_abc()
+    if es_admin:
+        with tabs[2]:
+            _tab_salud()
+        with tabs[3]:
+            _tab_productividad()
+        with tabs[4]:
+            _tab_tendencia()
+
+# =========================================================
 # ADMINISTRACIÓN
 # =========================================================
 
 def pantalla_admin():
     header("Administración", "Usuarios, inventario y control de sesiones")
-    tab1, tab2, tab3 = st.tabs(["👤 Usuarios", "📦 Inventario", "🧾 Sesiones"])
+    tab1, tab2, tab3, tab4 = st.tabs(["👤 Usuarios", "📦 Inventario", "🧾 Sesiones", "🛡️ Auditoría"])
 
     with tab1:
         usuarios = cargar_usuarios()
@@ -1673,6 +2327,25 @@ def pantalla_admin():
         else:
             st.dataframe(sesiones.sort_values("FechaInicio", ascending=False), use_container_width=True, hide_index=True)
 
+    with tab4:
+        aud = cargar_auditoria()
+        if aud.empty:
+            st.info("Aún no hay eventos registrados. La bitácora guarda inicios de sesión, creación y cierre de sesiones, reconteos y altas de usuarios.")
+        else:
+            aud = aud.sort_values("FechaHora", ascending=False)
+            acciones = ["Todas"] + sorted([a for a in aud["Accion"].astype(str).unique() if a])
+            accion_sel = st.selectbox("Filtrar por acción", acciones)
+            if accion_sel != "Todas":
+                aud = aud[aud["Accion"].astype(str) == accion_sel]
+            st.dataframe(aud.head(500), use_container_width=True, hide_index=True)
+            st.download_button(
+                "📥 Descargar bitácora (CSV)",
+                data=aud.to_csv(index=False).encode("utf-8-sig"),
+                file_name="auditoria_inventario.csv",
+                mime="text/csv",
+                use_container_width=True,
+            )
+
 # =========================================================
 # SIDEBAR
 # =========================================================
@@ -1710,7 +2383,7 @@ def sidebar():
         </div>
     """, unsafe_allow_html=True)
 
-    opciones = ["Inicio", "Precios", "Sesión", "Inventario", "Resultados"]
+    opciones = ["Inicio", "Precios", "Sesión", "Inventario", "Resultados", "Análisis"]
     if rol == "ADMIN":
         opciones.append("Administración")
 
@@ -1738,7 +2411,7 @@ def sidebar():
 
     st.sidebar.markdown('<div class="btn-logout">', unsafe_allow_html=True)
     if st.sidebar.button("Cerrar Sesión", use_container_width=True, key="sb_cerrar_sesion"):
-        for key in ["autenticado", "usuario", "pagina", "nav_menu", "sesion_actual", "codigo_pendiente", "producto_pendiente", "modo_inventario", "ultimo_codigo_scan", "precio_producto", "precio_modo", "precio_ultimo_codigo_scan"]:
+        for key in ["autenticado", "usuario", "pagina", "nav_menu", "reconteo_activo", "sesion_actual", "codigo_pendiente", "producto_pendiente", "modo_inventario", "ultimo_codigo_scan", "precio_producto", "precio_modo", "precio_ultimo_codigo_scan"]:
             st.session_state.pop(key, None)
         st.rerun()
     st.sidebar.markdown('</div>', unsafe_allow_html=True)
@@ -1760,6 +2433,9 @@ for key, default in {
     "precio_producto": None,
     "precio_modo": "scanner",
     "precio_ultimo_codigo_scan": "",
+    "reconteo_activo": False,
+    "login_intentos": 0,
+    "login_bloqueo_hasta": 0.0,
 }.items():
     if key not in st.session_state:
         st.session_state[key] = default
@@ -1804,6 +2480,8 @@ try:
         pantalla_inventario()
     elif pagina == "Resultados":
         pantalla_resultados()
+    elif pagina == "Análisis":
+        pantalla_analisis()
     elif pagina == "Administración":
         if str(st.session_state.usuario.get("Rol", "")).upper() == "ADMIN":
             pantalla_admin()
@@ -1813,4 +2491,3 @@ try:
 except Exception as exc:
     mostrar_error_google(exc, "carga de la pantalla")
     footer()
-
