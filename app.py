@@ -1007,6 +1007,23 @@ def generar_ajustes(dc):
     return d[cols].sort_values("ImpactoSoles").reset_index(drop=True)
 
 
+def lista_diferencias(dc, tipo):
+    """Lista COMPLETA de faltantes (tipo='FALTANTE') o sobrantes (tipo='SOBRANTE'),
+    con cantidades en positivo, lista para cuadrar con el sistema de ventas."""
+    es_falt = tipo == "FALTANTE"
+    col_cant = "CantidadFaltante" if es_falt else "CantidadSobrante"
+    col_valor = "ValorFaltante" if es_falt else "ValorSobrante"
+    cols = ["CodigoBarras", "CodigoProducto", "Producto", "Categoria", "Sucursal",
+            "StockSistema", "StockFisico", col_cant, "CostoUnitario", col_valor]
+    if dc is None or dc.empty:
+        return pd.DataFrame(columns=cols)
+    d = dc[dc["TipoDiferencia"] == tipo].copy()
+    if d.empty:
+        return pd.DataFrame(columns=cols)
+    d[col_cant] = d["Diferencia"].abs()
+    return d[cols].sort_values(col_valor, ascending=False).reset_index(drop=True)
+
+
 def clasificar_abc(inv, corte_a=80.0, corte_b=95.0):
     """Clasificación ABC (Pareto) por valor de inventario a costo."""
     cols = ["Clase", "Producto", "CodigoProducto", "Categoria", "StockSistema",
@@ -1962,6 +1979,50 @@ def pantalla_resultados():
             else:
                 st.caption("El reconteo solo está disponible mientras la sesión esté abierta.")
 
+    st.markdown("<div class='section-title'>📥 Listas de faltantes y sobrantes (para tu sistema de ventas)</div>", unsafe_allow_html=True)
+    if dc.empty:
+        st.info("No hay conteos para generar listas en esta sesión.")
+    else:
+        lista_falt = lista_diferencias(dc, "FALTANTE")
+        lista_sobr = lista_diferencias(dc, "SOBRANTE")
+        st.caption("Listas completas (no solo las 10 principales), con las cantidades en positivo. Usan el último conteo de cada producto.")
+        xlsx_mime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        tab_f, tab_s = st.tabs([f"🔴 Faltantes ({len(lista_falt)})", f"🟢 Sobrantes ({len(lista_sobr)})"])
+        for tab, lista, nombre, hoja, col_valor in (
+            (tab_f, lista_falt, "faltantes", "Faltantes", "ValorFaltante"),
+            (tab_s, lista_sobr, "sobrantes", "Sobrantes", "ValorSobrante"),
+        ):
+            with tab:
+                if lista.empty:
+                    st.info(f"No existen {nombre} en esta sesión.")
+                    continue
+                st.dataframe(lista, use_container_width=True, hide_index=True, column_config={
+                    "CostoUnitario": st.column_config.NumberColumn("Costo", format="S/ %.2f"),
+                    col_valor: st.column_config.NumberColumn("Valor", format="S/ %.2f"),
+                })
+                b1, b2 = st.columns(2)
+                with b1:
+                    try:
+                        st.download_button(
+                            f"📊 Descargar {nombre} (Excel)",
+                            data=exportar_excel({hoja: lista}),
+                            file_name=f"{nombre}_{seleccionado}.xlsx",
+                            mime=xlsx_mime,
+                            use_container_width=True,
+                            key=f"dl_{nombre}_xlsx",
+                        )
+                    except Exception:
+                        st.caption("Instala `openpyxl` en requirements.txt para exportar a Excel.")
+                with b2:
+                    st.download_button(
+                        f"📥 Descargar {nombre} (CSV)",
+                        data=lista.to_csv(index=False).encode("utf-8-sig"),
+                        file_name=f"{nombre}_{seleccionado}.csv",
+                        mime="text/csv",
+                        use_container_width=True,
+                        key=f"dl_{nombre}_csv",
+                    )
+
     st.markdown("<div class='section-title'>🧮 Ajustes sugeridos de stock</div>", unsafe_allow_html=True)
     if ajustes.empty:
         st.info("No hay diferencias que ajustar en esta sesión.")
@@ -2010,6 +2071,8 @@ def pantalla_resultados():
                 "Detalle": dc_hist if not dc_hist.empty else pd.DataFrame(columns=HEADERS_CONTEO),
                 "Resumen": pd.DataFrame([resumen]),
                 "Ajustes": ajustes,
+                "Faltantes": lista_diferencias(dc, "FALTANTE"),
+                "Sobrantes": lista_diferencias(dc, "SOBRANTE"),
             })
             st.download_button(
                 "📊 Descargar todo en Excel",
