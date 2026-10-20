@@ -1,15 +1,3 @@
-import streamlit as st
-import pandas as pd
-import gspread
-import hashlib
-import io
-import os
-import re
-import time
-import html
-import base64
-import mimetypes
-from datetime import datetime
 from google.oauth2.service_account import Credentials
 import streamlit.components.v1 as components
 
@@ -379,6 +367,357 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+
+# =========================================================
+# ESTILO VISUAL COMPLETO — REFERENCIA APP ASISTENCIA
+# Se superpone al tema previo; no altera procesos ni conexiones.
+# =========================================================
+st.markdown("""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap');
+
+    html, body, [class*="css"], .stMarkdown, div, button, input, select, textarea {
+        font-family: 'Montserrat', sans-serif !important;
+    }
+
+    .stApp {
+        background-color: #FAFAFA;
+    }
+
+    header[data-testid="stHeader"] {
+        background-color: transparent !important;
+        z-index: 100;
+    }
+
+    header[data-testid="stHeader"] button {
+        color: #111827 !important;
+    }
+
+    .market-header {
+        background-color: #FFFFFF;
+        padding: 20px 24px;
+        border-radius: 8px;
+        border: 1px solid #E5E7EB;
+        border-left: 4px solid #EC3237;
+        margin-bottom: 24px;
+    }
+    .market-header h1 {
+        color: #111827 !important;
+        margin: 0;
+        font-size: 1.3rem !important;
+        font-weight: 600 !important;
+        letter-spacing: -0.3px;
+    }
+    .market-header p {
+        color: #6B7280;
+        margin: 4px 0 0 0;
+        font-size: 0.85rem;
+        font-weight: 400;
+    }
+
+    .info-card {
+        background-color: #FFFFFF;
+        padding: 18px 20px;
+        border-radius: 8px;
+        border: 1px solid #E5E7EB;
+        margin-bottom: 15px;
+    }
+    .info-label {
+        color: #6B7280;
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+    }
+    .info-value {
+        color: #111827;
+        font-size: 1.4rem;
+        font-weight: 700;
+        margin-top: 4px;
+    }
+
+    .stButton>button {
+        background-color: #111827 !important;
+        color: #FFFFFF !important;
+        border-radius: 6px !important;
+        border: none !important;
+        font-weight: 500 !important;
+        font-size: 0.82rem !important;
+        height: 2.8em !important;
+        transition: all 0.2s ease !important;
+        letter-spacing: 0.3px;
+    }
+    .stButton>button:hover {
+        background-color: #374151 !important;
+    }
+
+    .btn-ingreso > button {
+        background-color: #00A959 !important;
+    }
+    .btn-ingreso > button:hover {
+        background-color: #008847 !important;
+    }
+
+    .btn-salida > button {
+        background-color: #EC3237 !important;
+    }
+    .btn-salida > button:hover {
+        background-color: #D02429 !important;
+    }
+
+    [data-testid="stSidebar"] {
+        background-color: #111827 !important;
+        border-right: 1px solid #1F2937;
+    }
+    [data-testid="stSidebar"] * {
+        color: #E5E7EB !important;
+    }
+    
+    .btn-logout > button {
+        background-color: transparent !important;
+        border: 1px solid #374151 !important;
+        color: #9CA3AF !important;
+    }
+    .btn-logout > button:hover {
+        background-color: #1F2937 !important;
+        color: #FFFFFF !important;
+    }
+
+    div[data-testid="stForm"], div[data-testid="stExpander"] {
+        border-radius: 8px !important;
+        border: 1px solid #E5E7EB !important;
+        background-color: #FFFFFF !important;
+        padding: 20px !important;
+        box-shadow: none !important;
+    }
+
+    .cal-card {
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        padding: 14px;
+        margin-bottom: 20px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+    }
+    .cal-title {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #1f2937;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .cal-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 3px;
+        font-size: 0.75rem;
+    }
+    .cal-table th {
+        background-color: #f8fafc;
+        color: #64748b;
+        font-weight: 600;
+        padding: 6px 2px;
+        text-align: center;
+        border-radius: 4px;
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .cal-table td {
+        height: 36px;
+        text-align: center;
+        vertical-align: middle;
+        border-radius: 6px;
+        font-weight: 600;
+        color: #334155;
+        background-color: #ffffff;
+        border: 1px solid #f1f5f9;
+        transition: all 0.15s ease;
+    }
+    
+    .cal-day-num {
+        font-size: 0.82rem;
+        line-height: 1;
+    }
+    .cal-sub {
+        font-size: 0.6rem;
+        font-weight: 500;
+        margin-top: 2px;
+        display: block;
+        opacity: 0.9;
+    }
+
+    .bg-asistio {
+        background-color: #dcfce7 !important;
+        color: #15803d !important;
+        border: 1px solid #bbf7d0 !important;
+    }
+    .bg-falta {
+        background-color: #fee2e2 !important;
+        color: #b91c1c !important;
+        border: 1px solid #fca5a5 !important;
+    }
+    .bg-permiso {
+        background-color: #ede9fe !important;
+        color: #6d28d9 !important;
+        border: 1px solid #c4b5fd !important;
+    }
+    .bg-permiso-pendiente {
+        background-color: #fef3c7 !important;
+        color: #92400e !important;
+        border: 1px solid #fcd34d !important;
+    }
+    .bg-recuperacion {
+        background-color: #cffafe !important;
+        color: #0e7490 !important;
+        border: 1px solid #67e8f9 !important;
+    }
+    .bg-extra {
+        background-color: #fef9c3 !important;
+        color: #a16207 !important;
+        border: 1px solid #fef08a !important;
+    }
+    .bg-descanso {
+        background-color: #f3f4f6 !important;
+        color: #6b7280 !important;
+        border: 1px solid #e5e7eb !important;
+    }
+    .bg-inicio {
+        background-color: #e0f2fe !important;
+        color: #0369a1 !important;
+        border: 1px solid #bae6fd !important;
+    }
+    .bg-cese {
+        background-color: #f3e8ff !important;
+        color: #6b21a8 !important;
+        border: 1px solid #e9d5ff !important;
+    }
+    .bg-vacio {
+        background-color: transparent !important;
+        border: none !important;
+    }
+    .bg-futuro {
+        background-color: #ffffff !important;
+        color: #94a3b8 !important;
+        border: 1px dashed #e2e8f0 !important;
+    }
+    .bg-permiso-salud {
+        background-color: #fce7f3 !important;
+        color: #be185d !important;
+        border: 1px solid #f9a8d4 !important;
+    }
+    .bg-recuperacion-salud {
+        background-color: #e0e7ff !important;
+        color: #4338ca !important;
+        border: 1px solid #c7d2fe !important;
+    }
+    .bg-domingo-voluntario {
+        background-color: #ccfbf1 !important;
+        color: #0f766e !important;
+        border: 1px solid #5eead4 !important;
+    }
+
+    .legend-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 16px;
+        background: #ffffff;
+        padding: 10px 14px;
+        border-radius: 8px;
+        border: 1px solid #e5e7eb;
+    }
+    .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.78rem;
+        font-weight: 500;
+        color: #4b5563;
+    }
+    .legend-badge {
+        width: 12px;
+        height: 12px;
+        border-radius: 3px;
+        display: inline-block;
+    }
+
+    .profile-name {
+        font-weight: 700;
+        font-size: 1.05rem;
+        color: #111827;
+    }
+    .profile-role {
+        font-size: 0.82rem;
+        color: #4B5563;
+        margin-bottom: 6px;
+    }
+    .profile-field {
+        font-size: 0.68rem;
+        font-weight: 700;
+        color: #6B7280;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-top: 6px;
+    }
+    .profile-val {
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: #111827;
+    }
+
+    .app-footer {
+        text-align: center;
+        padding: 24px 10px 12px 10px;
+        margin-top: 40px;
+        border-top: 1px solid #E5E7EB;
+        color: #6B7280;
+        font-size: 0.8rem;
+        line-height: 1.5;
+    }
+    .app-footer strong {
+        color: #111827;
+    }
+    /* ESTILOS DE BOLETA DE PAGO EN HTML */
+    .boleta-container {
+        background-color: #ffffff;
+        border: 2px solid #111827;
+        padding: 24px;
+        border-radius: 6px;
+        max-width: 850px;
+        margin: 0 auto 20px auto;
+        color: #111827;
+        font-family: 'Montserrat', sans-serif;
+    }
+    .boleta-header-title {
+        text-align: center;
+        font-size: 1.2rem;
+        font-weight: 800;
+        letter-spacing: 1px;
+        border-bottom: 2px solid #111827;
+        padding-bottom: 8px;
+        margin-bottom: 15px;
+    }
+    .boleta-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 12px;
+        font-size: 0.82rem;
+    }
+    .boleta-table th, .boleta-table td {
+        border: 1px solid #000;
+        padding: 6px 8px;
+        text-align: left;
+    }
+    .boleta-table th {
+        background-color: #f3f4f6;
+        font-weight: 700;
+    }
+</style>
+""", unsafe_allow_html=True)
+st.markdown("<style>" + '\n/* Inventario: componentes específicos, armonizados con Asistencia */\n:root { --red:#EC3237; --green:#00A959; --blue:#1071B8; --text:#111827; --muted:#6B7280; --bg:#FAFAFA; --card:#FFFFFF; --border:#E5E7EB; }\n.premium-header,.market-header {background:#fff!important;border:1px solid #E5E7EB!important;border-left:4px solid #EC3237!important;border-radius:8px!important;padding:20px 24px!important;margin-bottom:24px!important;box-shadow:none!important;}\n.premium-header h1,.market-header h1 {color:#111827!important;font-size:1.3rem!important;font-weight:600!important;}\n.premium-header p,.market-header p {color:#6B7280!important;font-size:.85rem!important;}\n.info-card,.card,.kpi-card,.product-card,.price-info-item,.stock-box,.price-hero {background:#fff!important;border:1px solid #E5E7EB!important;border-radius:8px!important;box-shadow:none!important;color:#111827!important;}\n.info-card,.card,.kpi-card {padding:18px 20px!important;margin-bottom:15px!important;}\n.product-card {border-top:3px solid #1071B8!important;padding:18px 20px!important;}\n.info-label,.kpi-label,.stock-label,.price-label {color:#6B7280!important;font-size:.72rem!important;font-weight:600!important;letter-spacing:.5px!important;}\n.info-value,.kpi-value,.stock-number,.price-value {color:#111827!important;font-weight:700!important;}\n.price-hero {padding:24px 20px!important;text-align:center!important;}\n.price-info-grid {display:flex;flex-wrap:wrap;gap:10px;}\n.price-info-item {flex:1 1 120px;padding:12px!important;text-align:center;}\n.badge {display:inline-block;padding:4px 10px;border-radius:999px;font-size:.72rem;font-weight:600;}\n.badge-ok,.badge-sobrante {background:#DCFCE7;color:#15803D;}\n.badge-faltante {background:#FEE2E2;color:#B91C1C;}\n.badge-abierta {background:#DBEAFE;color:#1D4ED8;}\n.badge-cerrada {background:#F3F4F6;color:#4B5563;}\n[data-testid="stSidebar"] [role="radiogroup"] label {border-radius:6px!important;padding:8px 10px!important;}\n[data-testid="stSidebar"] [role="radiogroup"] label:hover {background:#1F2937!important;}\n[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {background:#263445!important;border-left:3px solid #EC3237!important;}\n.stButton>button[kind="primary"],div[data-testid="stFormSubmitButton"] button[kind="primary"] {background:#EC3237!important;color:#fff!important;}\n.stButton>button[kind="primary"]:hover {background:#D02429!important;}\n[data-testid="stDataFrame"], [data-testid="stDataEditor"] {border-radius:8px!important;overflow:hidden;}\n[data-testid="stTabs"] button[aria-selected="true"] {color:#EC3237!important;border-bottom-color:#EC3237!important;}\n[data-testid="stMetric"] {background:#fff;border:1px solid #E5E7EB;border-radius:8px;padding:14px 16px;}\n[data-testid="stMetricValue"] {color:#111827!important;}\n[data-testid="stFileUploader"] {background:#fff;border-radius:8px;}\n.stTextInput input,.stNumberInput input,.stTextArea textarea {border-radius:6px!important;}\n.app-footer {text-align:center;padding:24px 10px 12px;margin-top:40px;border-top:1px solid #E5E7EB;color:#6B7280;font-size:.8rem;}\n@media(max-width:768px) {\n .block-container {padding-left:.65rem!important;padding-right:.65rem!important;padding-bottom:4rem!important;}\n .premium-header,.market-header {padding:16px!important;margin-bottom:16px!important;}\n .premium-header h1,.market-header h1 {font-size:1.13rem!important;}\n .info-card,.card,.kpi-card,.product-card {padding:13px!important;}\n .kpi-value,.info-value {font-size:1.25rem!important;}\n .price-hero .price-value {font-size:2.25rem!important;}\n .stButton>button,div[data-testid="stFormSubmitButton"] button {min-height:46px!important;height:auto!important;}\n [data-testid="stHorizontalBlock"] {gap:.65rem!important;}\n .app-footer {font-size:.72rem;}\n}\n' + "</style>", unsafe_allow_html=True)
 
 # =========================================================
 # UTILIDADES
