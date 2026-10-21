@@ -2130,18 +2130,27 @@ st.markdown("""<style>
 .tp-lg-k{font-size:.75rem;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:#FF8A8E;margin:32px 0 10px;}
 .tp-lg-h{font-size:2rem;font-weight:800;line-height:1.18;color:#fff;margin:0 0 16px;}
 .tp-lg-h em{font-style:normal;color:#FF7A7D;}
-.tp-lg-p{font-size:.95rem;color:#B7C2D9;line-height:1.7;}
+.tp-lg-p{font-size:.95rem;color:#CBD5E1;line-height:1.7;}
 .tp-lg-feat{display:grid;gap:12px;margin-top:24px;}
 .tp-lg-feat div{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:13px;color:#E6ECF8;font-size:.88rem;}
-.tp-lg-quote{margin-top:30px;padding:18px;border-left:4px solid #EC3237;border-radius:12px;background:rgba(255,255,255,.06);color:#fff;}
+.tp-lg-quote{margin-top:30px;padding:18px;border-left:4px solid #EC3237;border-radius:12px;background:rgba(255,255,255,.09);color:#fff;}
 .tp-lg-quote small{display:block;color:#FF8A8E;text-transform:uppercase;font-weight:700;font-size:.7rem;letter-spacing:.1em;margin-bottom:8px;}
-.tp-lg-quote p{color:#fff;margin:0;font-weight:600;}
+.tp-lg-quote p{color:#F1F5F9;margin:0;font-weight:600;}
 .tp-login-title{text-align:center;font-size:1.55rem;font-weight:800;color:#0F172A;margin:12px 0 4px;}
 .tp-login-sub{text-align:center;color:#64748B;font-size:.88rem;margin-bottom:24px;}
 .tp-login-lock{text-align:center;margin:8px auto 0;width:58px;height:58px;line-height:58px;border-radius:16px;background:#FDECEC;color:#EC3237;font-size:1.65rem;}
 [data-testid="stSidebar"] .tp-brand-name{font-size:.92rem;font-weight:800;color:#fff!important;letter-spacing:.04em;}
 [data-testid="stSidebar"] .tp-brand-name span{color:#FF797D!important;}
 [data-testid="stSidebar"] .tp-brand-sub{font-size:.72rem;color:#9AABC7!important;margin-top:4px;}
+/* Inicio de sesión: composición de bienvenida + acceso, como Asistencias. */
+.tp-lg-hero{background:linear-gradient(155deg,#101828 0%,#172641 100%)!important;}
+.tp-lg-hero::before{background:radial-gradient(circle,rgba(236,50,55,.38),transparent 70%)!important;}
+.tp-lg-p{color:#D5DEED!important;}
+.tp-lg-feat div{color:#F3F6FC!important;background:rgba(255,255,255,.09)!important;}
+.tp-lg-quote p{color:#F3F6FC!important;}
+.tp-login-title{font-size:1.7rem!important;}
+[data-testid="stTextInput"] input{background:#F4F6FA!important;color:#14213B!important;}
+@media(max-width:900px){.tp-lg-hero{min-height:0!important;}}
 @media(max-width:900px){.tp-lg-hero{min-height:0;padding:24px;}.tp-lg-h{font-size:1.5rem;}.tp-lg-feat,.tp-lg-quote{display:none;}}
 </style>""", unsafe_allow_html=True)
 
