@@ -54,7 +54,7 @@ except Exception:
 
 APP_NAME = "Tiendas Premium"
 COMPANY = "Tiendas Premium EIRL"
-RUC = "20612107787"
+RUC = "20612107786"
 AUTHOR = "Humberto Atoche"
 SHEET_NAME = "BD_Inventario_PremiumMarket"
 
@@ -120,281 +120,10 @@ HOJA_CONTEOS_ZONA = "ConteosPorZona"
 HEADERS_CONTEOS_ZONA = ["IdSesion", "FechaHora", "Usuario", "NombreUsuario", "Zona", "CodigoBarras", "CodigoProducto", "Producto", "Categoria", "Sucursal", "StockSistema", "StockFisico", "CostoUnitario", "MetodoConteo", "Observacion", "TipoRegistro", "IdRegistro"]
 
 # =========================================================
-# ESTILOS
-# =========================================================
-
-st.markdown("""
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap');
-
-    :root {
-        --red: #EC3237;
-        --red-dark: #D02429;
-        --green: #00A959;
-        --green-dark: #008847;
-        --blue: #1071B8;
-        --text: #111827;
-        --muted: #6B7280;
-        --bg: #FAFAFA;
-        --card: #FFFFFF;
-        --border: #E5E7EB;
-    }
-
-    html, body, [class*="css"], .stMarkdown, div, button, input, select, textarea {
-        font-family: 'Montserrat', sans-serif !important;
-    }
-
-    .stApp {
-        background-color: #FAFAFA;
-    }
-
-    header[data-testid="stHeader"] {
-        background-color: transparent !important;
-        z-index: 100;
-    }
-
-    header[data-testid="stHeader"] button {
-        color: #111827 !important;
-    }
-
-    .block-container {
-        padding-bottom: 4rem;
-    }
-
-    /* ---------- ENCABEZADO (idéntico al market-header de la App 43) ---------- */
-    .market-header,
-    .premium-header {
-        background-color: #FFFFFF;
-        padding: 20px 24px;
-        border-radius: 8px;
-        border: 1px solid #E5E7EB;
-        border-left: 4px solid #EC3237;
-        margin-bottom: 24px;
-    }
-    .market-header h1,
-    .premium-header h1 {
-        color: #111827 !important;
-        margin: 0;
-        font-size: 1.3rem !important;
-        font-weight: 600 !important;
-        letter-spacing: -0.3px;
-    }
-    .market-header p,
-    .premium-header p {
-        color: #6B7280;
-        margin: 4px 0 0 0;
-        font-size: 0.85rem;
-        font-weight: 400;
-    }
-
-    .section-title {
-        color: #111827;
-        font-size: 1rem;
-        font-weight: 600;
-        margin: 12px 0 10px;
-    }
-
-    /* ---------- TARJETAS (idénticas al info-card de la App 43) ---------- */
-    .info-card,
-    .card,
-    .kpi-card,
-    .product-card,
-    .price-info-item {
-        background-color: #FFFFFF;
-        border: 1px solid #E5E7EB;
-        border-radius: 8px;
-        box-shadow: none;
-    }
-    .info-card,
-    .card,
-    .kpi-card {
-        padding: 18px 20px;
-        margin-bottom: 15px;
-    }
-    .info-label,
-    .kpi-label,
-    .stock-label,
-    .price-info-item .lbl {
-        color: #6B7280;
-        font-size: 0.7rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.8px;
-    }
-    .info-value,
-    .kpi-value,
-    .stock-number {
-        color: #111827;
-        font-size: 1.4rem;
-        font-weight: 700;
-        margin-top: 4px;
-    }
-    .kpi-card { min-height: 105px; }
-    .kpi-note { color: #6B7280; font-size: 0.75rem; margin-top: 2px; }
-
-    .product-card {
-        border-top: 3px solid #1071B8;
-        padding: 18px 20px;
-        margin: 10px 0 15px;
-    }
-    .product-name { font-size: 1.15rem; font-weight: 700; color: #111827; line-height: 1.25; }
-    .product-meta { color: #4B5563; font-size: 0.82rem; margin-top: 4px; }
-
-    .stock-box {
-        background-color: #F8FAFC;
-        border: 1px solid #E5E7EB;
-        border-radius: 8px;
-        padding: 13px;
-        text-align: center;
-    }
-
-    .badge {
-        display: inline-block;
-        padding: 4px 10px;
-        border-radius: 999px;
-        font-size: 0.72rem;
-        font-weight: 600;
-    }
-    .badge-ok { background: #DCFCE7; color: #15803D; }
-    .badge-faltante { background: #FEE2E2; color: #B91C1C; }
-    .badge-sobrante { background: #DCFCE7; color: #15803D; }
-    .badge-abierta { background: #DBEAFE; color: #1D4ED8; }
-    .badge-cerrada { background: #F3F4F6; color: #4B5563; }
-
-    .price-hero {
-        background-color: #FFFFFF;
-        color: #111827;
-        border: 1px solid #E5E7EB;
-        border-radius: 8px;
-        padding: 28px 22px;
-        text-align: center;
-        box-shadow: none;
-        margin: 14px 0;
-    }
-    .price-hero .price-label { font-size: 0.8rem; font-weight: 600; text-transform: uppercase; color: #6B7280; letter-spacing: 0.8px; }
-    .price-hero .price-value { font-size: 3rem; font-weight: 800; margin: 6px 0 2px; line-height: 1; color: #111827; }
-    .price-hero .price-sub { font-size: 0.85rem; color: #6B7280; }
-
-    .price-info-grid { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
-    .price-info-item {
-        flex: 1 1 120px;
-        padding: 11px 12px;
-        text-align: center;
-    }
-    .price-info-item .val { color: #111827; font-size: 1.05rem; font-weight: 700; margin-top: 3px; }
-
-    .mobile-note {
-        background-color: #FFFFFF;
-        border: 1px solid #E5E7EB;
-        color: #6B7280;
-        border-radius: 8px;
-        padding: 10px 12px;
-        font-size: 0.82rem;
-        margin-bottom: 12px;
-    }
-
-    /* ---------- BOTONES (idénticos a la App 43) ---------- */
-    .stButton>button {
-        background-color: #111827 !important;
-        color: #FFFFFF !important;
-        border-radius: 6px !important;
-        border: none !important;
-        font-weight: 500 !important;
-        font-size: 0.82rem !important;
-        height: 2.8em !important;
-        transition: all 0.2s ease !important;
-        letter-spacing: 0.3px;
-    }
-    .stButton>button:hover {
-        background-color: #374151 !important;
-    }
-    .stButton>button[kind="primary"] {
-        background-color: #EC3237 !important;
-    }
-    .stButton>button[kind="primary"]:hover {
-        background-color: #D02429 !important;
-    }
-
-    .btn-ingreso > button {
-        background-color: #00A959 !important;
-    }
-    .btn-ingreso > button:hover {
-        background-color: #008847 !important;
-    }
-
-    .btn-salida > button {
-        background-color: #EC3237 !important;
-    }
-    .btn-salida > button:hover {
-        background-color: #D02429 !important;
-    }
-
-    /* ---------- SIDEBAR (copia exacta de la App 43) ---------- */
-    [data-testid="stSidebar"] {
-        background-color: #111827 !important;
-        border-right: 1px solid #1F2937;
-    }
-    [data-testid="stSidebar"] * {
-        color: #E5E7EB !important;
-    }
-
-    .btn-logout > button {
-        background-color: transparent !important;
-        border: 1px solid #374151 !important;
-        color: #9CA3AF !important;
-    }
-    .btn-logout > button:hover {
-        background-color: #1F2937 !important;
-        color: #FFFFFF !important;
-    }
-
-    /* ---------- FORMULARIOS Y EXPANDERS (idénticos a la App 43) ---------- */
-    div[data-testid="stForm"], div[data-testid="stExpander"] {
-        border-radius: 8px !important;
-        border: 1px solid #E5E7EB !important;
-        background-color: #FFFFFF !important;
-        padding: 20px !important;
-        box-shadow: none !important;
-    }
-
-    /* ---------- FOOTER (idéntico a la App 43) ---------- */
-    .app-footer {
-        text-align: center;
-        padding: 24px 10px 12px 10px;
-        margin-top: 40px;
-        border-top: 1px solid #E5E7EB;
-        color: #6B7280;
-        font-size: 0.8rem;
-        line-height: 1.5;
-    }
-    .app-footer strong {
-        color: #111827;
-    }
-
-    /* ---------- AJUSTES MÓVIL ---------- */
-    @media (max-width: 768px) {
-        .block-container { padding-left: .65rem; padding-right: .65rem; padding-bottom: 4rem; }
-        .premium-header, .market-header { padding: 17px; }
-        .premium-header h1, .market-header h1 { font-size: 1.15rem !important; }
-        .premium-header p, .market-header p { font-size: 0.8rem; }
-        .card, .info-card { padding: 13px; }
-        .kpi-card { min-height: 88px; padding: 12px; }
-        .kpi-value, .info-value { font-size: 1.25rem; }
-        .product-card { padding: 14px; }
-        .product-name { font-size: 1.05rem; }
-        .price-hero { padding: 22px 16px; }
-        .price-hero .price-value { font-size: 2.3rem; }
-        .stButton>button { height: auto !important; min-height: 46px !important; }
-        div[data-testid="stFormSubmitButton"] > button { min-height: 46px; }
-        .app-footer { font-size: 0.72rem; padding-top: 20px; }
-    }
-</style>
-""", unsafe_allow_html=True)
-
-
-# =========================================================
-# ESTILO VISUAL COMPLETO — REFERENCIA APP ASISTENCIA
-# Se superpone al tema previo; no altera procesos ni conexiones.
+# SISTEMA DE DISEÑO TIENDAS PREMIUM
+# Mismo sistema visual que la app de Asistencia (colores, tipografía, sidebar,
+# tarjetas, botones, login, navegación móvil). Un solo bloque ordenado: reemplaza
+# las capas de CSS superpuestas que tenía esta app. No altera lógica ni Google Sheets.
 # =========================================================
 st.markdown("""
 <style>
@@ -515,183 +244,6 @@ st.markdown("""
         box-shadow: none !important;
     }
 
-    .cal-card {
-        background: #ffffff;
-        border: 1px solid #e5e7eb;
-        border-radius: 10px;
-        padding: 14px;
-        margin-bottom: 20px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.02);
-    }
-    .cal-title {
-        font-size: 0.85rem;
-        font-weight: 600;
-        color: #1f2937;
-        margin-bottom: 10px;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-    }
-    .cal-table {
-        width: 100%;
-        border-collapse: separate;
-        border-spacing: 3px;
-        font-size: 0.75rem;
-    }
-    .cal-table th {
-        background-color: #f8fafc;
-        color: #64748b;
-        font-weight: 600;
-        padding: 6px 2px;
-        text-align: center;
-        border-radius: 4px;
-        font-size: 0.7rem;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-    .cal-table td {
-        height: 36px;
-        text-align: center;
-        vertical-align: middle;
-        border-radius: 6px;
-        font-weight: 600;
-        color: #334155;
-        background-color: #ffffff;
-        border: 1px solid #f1f5f9;
-        transition: all 0.15s ease;
-    }
-    
-    .cal-day-num {
-        font-size: 0.82rem;
-        line-height: 1;
-    }
-    .cal-sub {
-        font-size: 0.6rem;
-        font-weight: 500;
-        margin-top: 2px;
-        display: block;
-        opacity: 0.9;
-    }
-
-    .bg-asistio {
-        background-color: #dcfce7 !important;
-        color: #15803d !important;
-        border: 1px solid #bbf7d0 !important;
-    }
-    .bg-falta {
-        background-color: #fee2e2 !important;
-        color: #b91c1c !important;
-        border: 1px solid #fca5a5 !important;
-    }
-    .bg-permiso {
-        background-color: #ede9fe !important;
-        color: #6d28d9 !important;
-        border: 1px solid #c4b5fd !important;
-    }
-    .bg-permiso-pendiente {
-        background-color: #fef3c7 !important;
-        color: #92400e !important;
-        border: 1px solid #fcd34d !important;
-    }
-    .bg-recuperacion {
-        background-color: #cffafe !important;
-        color: #0e7490 !important;
-        border: 1px solid #67e8f9 !important;
-    }
-    .bg-extra {
-        background-color: #fef9c3 !important;
-        color: #a16207 !important;
-        border: 1px solid #fef08a !important;
-    }
-    .bg-descanso {
-        background-color: #f3f4f6 !important;
-        color: #6b7280 !important;
-        border: 1px solid #e5e7eb !important;
-    }
-    .bg-inicio {
-        background-color: #e0f2fe !important;
-        color: #0369a1 !important;
-        border: 1px solid #bae6fd !important;
-    }
-    .bg-cese {
-        background-color: #f3e8ff !important;
-        color: #6b21a8 !important;
-        border: 1px solid #e9d5ff !important;
-    }
-    .bg-vacio {
-        background-color: transparent !important;
-        border: none !important;
-    }
-    .bg-futuro {
-        background-color: #ffffff !important;
-        color: #94a3b8 !important;
-        border: 1px dashed #e2e8f0 !important;
-    }
-    .bg-permiso-salud {
-        background-color: #fce7f3 !important;
-        color: #be185d !important;
-        border: 1px solid #f9a8d4 !important;
-    }
-    .bg-recuperacion-salud {
-        background-color: #e0e7ff !important;
-        color: #4338ca !important;
-        border: 1px solid #c7d2fe !important;
-    }
-    .bg-domingo-voluntario {
-        background-color: #ccfbf1 !important;
-        color: #0f766e !important;
-        border: 1px solid #5eead4 !important;
-    }
-
-    .legend-container {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 12px;
-        margin-bottom: 16px;
-        background: #ffffff;
-        padding: 10px 14px;
-        border-radius: 8px;
-        border: 1px solid #e5e7eb;
-    }
-    .legend-item {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        font-size: 0.78rem;
-        font-weight: 500;
-        color: #4b5563;
-    }
-    .legend-badge {
-        width: 12px;
-        height: 12px;
-        border-radius: 3px;
-        display: inline-block;
-    }
-
-    .profile-name {
-        font-weight: 700;
-        font-size: 1.05rem;
-        color: #111827;
-    }
-    .profile-role {
-        font-size: 0.82rem;
-        color: #4B5563;
-        margin-bottom: 6px;
-    }
-    .profile-field {
-        font-size: 0.68rem;
-        font-weight: 700;
-        color: #6B7280;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-top: 6px;
-    }
-    .profile-val {
-        font-size: 0.85rem;
-        font-weight: 500;
-        color: #111827;
-    }
-
     .app-footer {
         text-align: center;
         padding: 24px 10px 12px 10px;
@@ -704,44 +256,693 @@ st.markdown("""
     .app-footer strong {
         color: #111827;
     }
-    /* ESTILOS DE BOLETA DE PAGO EN HTML */
-    .boleta-container {
-        background-color: #ffffff;
-        border: 2px solid #111827;
-        padding: 24px;
-        border-radius: 6px;
-        max-width: 850px;
-        margin: 0 auto 20px auto;
-        color: #111827;
-        font-family: 'Montserrat', sans-serif;
-    }
-    .boleta-header-title {
-        text-align: center;
-        font-size: 1.2rem;
-        font-weight: 800;
-        letter-spacing: 1px;
-        border-bottom: 2px solid #111827;
-        padding-bottom: 8px;
-        margin-bottom: 15px;
-    }
-    .boleta-table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-bottom: 12px;
-        font-size: 0.82rem;
-    }
-    .boleta-table th, .boleta-table td {
-        border: 1px solid #000;
-        padding: 6px 8px;
-        text-align: left;
-    }
-    .boleta-table th {
-        background-color: #f3f4f6;
-        font-weight: 700;
-    }
 </style>
 """, unsafe_allow_html=True)
-st.markdown("<style>" + '\n/* Inventario: componentes específicos, armonizados con Asistencia */\n:root { --red:#EC3237; --green:#00A959; --blue:#1071B8; --text:#111827; --muted:#6B7280; --bg:#FAFAFA; --card:#FFFFFF; --border:#E5E7EB; }\n.premium-header,.market-header {background:#fff!important;border:1px solid #E5E7EB!important;border-left:4px solid #EC3237!important;border-radius:8px!important;padding:20px 24px!important;margin-bottom:24px!important;box-shadow:none!important;}\n.premium-header h1,.market-header h1 {color:#111827!important;font-size:1.3rem!important;font-weight:600!important;}\n.premium-header p,.market-header p {color:#6B7280!important;font-size:.85rem!important;}\n.info-card,.card,.kpi-card,.product-card,.price-info-item,.stock-box,.price-hero {background:#fff!important;border:1px solid #E5E7EB!important;border-radius:8px!important;box-shadow:none!important;color:#111827!important;}\n.info-card,.card,.kpi-card {padding:18px 20px!important;margin-bottom:15px!important;}\n.product-card {border-top:3px solid #1071B8!important;padding:18px 20px!important;}\n.info-label,.kpi-label,.stock-label,.price-label {color:#6B7280!important;font-size:.72rem!important;font-weight:600!important;letter-spacing:.5px!important;}\n.info-value,.kpi-value,.stock-number,.price-value {color:#111827!important;font-weight:700!important;}\n.price-hero {padding:24px 20px!important;text-align:center!important;}\n.price-info-grid {display:flex;flex-wrap:wrap;gap:10px;}\n.price-info-item {flex:1 1 120px;padding:12px!important;text-align:center;}\n.badge {display:inline-block;padding:4px 10px;border-radius:999px;font-size:.72rem;font-weight:600;}\n.badge-ok,.badge-sobrante {background:#DCFCE7;color:#15803D;}\n.badge-faltante {background:#FEE2E2;color:#B91C1C;}\n.badge-abierta {background:#DBEAFE;color:#1D4ED8;}\n.badge-cerrada {background:#F3F4F6;color:#4B5563;}\n[data-testid="stSidebar"] [role="radiogroup"] label {border-radius:6px!important;padding:8px 10px!important;}\n[data-testid="stSidebar"] [role="radiogroup"] label:hover {background:#1F2937!important;}\n[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {background:#263445!important;border-left:3px solid #EC3237!important;}\n.stButton>button[kind="primary"],div[data-testid="stFormSubmitButton"] button[kind="primary"] {background:#EC3237!important;color:#fff!important;}\n.stButton>button[kind="primary"]:hover {background:#D02429!important;}\n[data-testid="stDataFrame"], [data-testid="stDataEditor"] {border-radius:8px!important;overflow:hidden;}\n[data-testid="stTabs"] button[aria-selected="true"] {color:#EC3237!important;border-bottom-color:#EC3237!important;}\n[data-testid="stMetric"] {background:#fff;border:1px solid #E5E7EB;border-radius:8px;padding:14px 16px;}\n[data-testid="stMetricValue"] {color:#111827!important;}\n[data-testid="stFileUploader"] {background:#fff;border-radius:8px;}\n.stTextInput input,.stNumberInput input,.stTextArea textarea {border-radius:6px!important;}\n.app-footer {text-align:center;padding:24px 10px 12px;margin-top:40px;border-top:1px solid #E5E7EB;color:#6B7280;font-size:.8rem;}\n@media(max-width:768px) {\n .block-container {padding-left:.65rem!important;padding-right:.65rem!important;padding-bottom:4rem!important;}\n .premium-header,.market-header {padding:16px!important;margin-bottom:16px!important;}\n .premium-header h1,.market-header h1 {font-size:1.13rem!important;}\n .info-card,.card,.kpi-card,.product-card {padding:13px!important;}\n .kpi-value,.info-value {font-size:1.25rem!important;}\n .price-hero .price-value {font-size:2.25rem!important;}\n .stButton>button,div[data-testid="stFormSubmitButton"] button {min-height:46px!important;height:auto!important;}\n [data-testid="stHorizontalBlock"] {gap:.65rem!important;}\n .app-footer {font-size:.72rem;}\n}\n' + "</style>", unsafe_allow_html=True)
+
+st.markdown("""
+<style>
+:root{
+  --tp-red:#EC3237; --tp-red-dk:#C9262B; --tp-red-soft:#FDECEC;
+  --tp-ink:#0F172A; --tp-ink-2:#334155; --tp-mute:#64748B;
+  --tp-bg:#F3F4F7; --tp-surface:#FFFFFF; --tp-line:#E3E6EC;
+  --tp-ok:#0B8F57; --tp-ok-soft:#E3F6EC; --tp-warn:#B45309; --tp-warn-soft:#FEF3C7;
+  --tp-bad:#B42318; --tp-bad-soft:#FEE4E2; --tp-info:#1D4ED8; --tp-info-soft:#E0EAFF;
+  --tp-r-sm:10px; --tp-r-md:14px; --tp-r-lg:20px;
+  --tp-sh-1:0 1px 2px rgba(15,23,42,.05),0 1px 3px rgba(15,23,42,.04);
+  --tp-sh-2:0 8px 24px -8px rgba(15,23,42,.14);
+}
+.stApp{background:var(--tp-bg);}
+.block-container{max-width:1240px;padding-top:4.2rem;padding-bottom:3rem;}
+#MainMenu,footer,[data-testid="stDecoration"],[data-testid="stAppDeployButton"],[data-testid="stMainMenu"],.stDeployButton{visibility:hidden;display:none;}
+header[data-testid="stHeader"]{background:transparent!important;}
+[data-testid="stToolbar"]{visibility:visible!important;display:flex!important;}
+/* Botón para abrir el menú de vistas (siempre visible) */
+[data-testid="stExpandSidebarButton"],[data-testid="stSidebarCollapsedControl"],[data-testid="collapsedControl"]{
+  display:flex!important;visibility:visible!important;opacity:1!important;z-index:1000;
+  position:fixed;top:12px;left:12px;width:46px;height:46px;align-items:center;justify-content:center;
+  background:var(--tp-ink)!important;border-radius:14px;box-shadow:var(--tp-sh-2);}
+[data-testid="stExpandSidebarButton"] *,[data-testid="stSidebarCollapsedControl"] *,[data-testid="collapsedControl"] *{color:#fff!important;fill:#fff!important;}
+[data-testid="stExpandSidebarButton"]:hover,[data-testid="stSidebarCollapsedControl"]:hover{background:var(--tp-red)!important;}
+[data-testid="stSidebarCollapseButton"] button,[data-testid="stSidebarCollapseButton"] *{color:#AEB8CC!important;}
+h1,h2,h3,h4,h5{color:var(--tp-ink);letter-spacing:-.01em;}
+h5{font-size:1.02rem!important;font-weight:650!important;margin:.4rem 0 .6rem!important;}
+[data-testid="stMetricValue"],.info-value,.tp-kpi-val{font-variant-numeric:tabular-nums;}
+:focus-visible{outline:3px solid rgba(236,50,55,.35)!important;outline-offset:2px;border-radius:8px;}
+
+/* Encabezado de página */
+.market-header{position:relative;background:var(--tp-surface);border:1px solid var(--tp-line);border-left:1px solid var(--tp-line);
+  border-radius:var(--tp-r-lg);padding:22px 26px 20px;margin-bottom:22px;box-shadow:var(--tp-sh-1);}
+.market-header::before{content:"";position:absolute;left:26px;top:0;width:36px;height:4px;background:var(--tp-red);border-radius:0 0 4px 4px;}
+.market-header h1{font-size:1.45rem!important;font-weight:700!important;margin-top:6px!important;color:var(--tp-ink)!important;}
+.market-header p{font-size:.9rem;color:var(--tp-mute);}
+
+/* Tarjetas y contenedores */
+[data-testid="stVerticalBlockBorderWrapper"]:has(> div > [data-testid="stVerticalBlock"]){border-radius:var(--tp-r-md);}
+div[data-testid="stVerticalBlockBorderWrapper"]{border-color:var(--tp-line)!important;background:var(--tp-surface);box-shadow:var(--tp-sh-1);}
+.info-card,.cal-card{border-radius:var(--tp-r-md)!important;border:1px solid var(--tp-line)!important;box-shadow:var(--tp-sh-1);}
+div[data-testid="stForm"],div[data-testid="stExpander"]{border-radius:var(--tp-r-md)!important;border:1px solid var(--tp-line)!important;box-shadow:var(--tp-sh-1)!important;}
+[data-testid="stMetric"]{background:var(--tp-surface);border:1px solid var(--tp-line);border-radius:var(--tp-r-md);padding:16px 18px;box-shadow:var(--tp-sh-1);}
+[data-testid="stMetricLabel"] p{font-size:.78rem!important;font-weight:600;color:var(--tp-mute)!important;}
+[data-testid="stMetricValue"]{font-weight:700;color:var(--tp-ink);}
+
+/* Botones */
+.stButton>button,.stDownloadButton>button,.stFormSubmitButton>button{min-height:46px;border-radius:var(--tp-r-sm)!important;font-weight:600!important;font-size:.9rem!important;
+  box-shadow:var(--tp-sh-1);transition:transform .12s ease,box-shadow .12s ease,background-color .12s ease!important;}
+.stButton>button:hover{transform:translateY(-1px);box-shadow:var(--tp-sh-2);}
+.stButton>button:active{transform:translateY(0) scale(.98);}
+.stDownloadButton>button{background:var(--tp-surface)!important;color:var(--tp-ink)!important;border:1px solid var(--tp-line)!important;}
+.stDownloadButton>button:hover{border-color:var(--tp-ink)!important;background:#F8FAFC!important;}
+.btn-ingreso>button,.btn-salida>button{min-height:64px!important;font-size:1.05rem!important;border-radius:var(--tp-r-md)!important;}
+.btn-ingreso>button{background:var(--tp-ok)!important;}
+.btn-ingreso>button:hover{background:#087548!important;}
+
+/* Campos */
+[data-baseweb="input"],[data-baseweb="select"]>div,[data-baseweb="textarea"],.stDateInput>div>div,.stNumberInput>div>div{border-radius:var(--tp-r-sm)!important;}
+[data-baseweb="input"],[data-baseweb="textarea"],[data-baseweb="select"]>div{border:1px solid var(--tp-line)!important;background:var(--tp-surface)!important;}
+[data-baseweb="input"]:focus-within,[data-baseweb="textarea"]:focus-within,[data-baseweb="select"]>div:focus-within{border-color:var(--tp-red)!important;box-shadow:0 0 0 3px rgba(236,50,55,.15)!important;}
+[data-testid="stWidgetLabel"] p{font-size:.82rem;font-weight:600;color:var(--tp-ink-2);}
+
+/* Pestañas */
+.stTabs [data-baseweb="tab-list"]{gap:6px;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid var(--tp-line);}
+.stTabs [data-baseweb="tab-list"]::-webkit-scrollbar{display:none;}
+.stTabs [data-baseweb="tab"]{height:46px;padding:0 14px;font-weight:600;color:var(--tp-mute);white-space:nowrap;}
+.stTabs [aria-selected="true"]{color:var(--tp-ink)!important;}
+.stTabs [data-baseweb="tab-highlight"]{background:var(--tp-red)!important;height:3px;border-radius:3px;}
+
+/* Tablas, alertas, progreso */
+[data-testid="stDataFrame"]{border:1px solid var(--tp-line);border-radius:var(--tp-r-md);overflow:hidden;box-shadow:var(--tp-sh-1);}
+[data-testid="stAlert"]{border-radius:var(--tp-r-md);border:1px solid var(--tp-line);}
+.stProgress>div>div>div>div{background:var(--tp-red)!important;border-radius:999px;}
+.stProgress>div>div>div{border-radius:999px;}
+
+/* Barra lateral como navegación */
+[data-testid="stSidebar"]{background:linear-gradient(180deg,#0F172A 0%,#111C33 100%)!important;border-right:none;}
+[data-testid="stSidebar"] [data-testid="stWidgetLabel"]{display:none;}
+[data-testid="stSidebar"] [role="radiogroup"]{gap:2px;}
+[data-testid="stSidebar"] [role="radiogroup"] label{position:relative;padding:10px 14px 10px 16px;border-radius:12px;cursor:pointer;transition:background .12s ease;}
+[data-testid="stSidebar"] [role="radiogroup"] label>div:first-child{display:none;}
+[data-testid="stSidebar"] [role="radiogroup"] label p{font-size:.88rem;font-weight:500;color:#AEB8CC!important;}
+[data-testid="stSidebar"] [role="radiogroup"] label:hover{background:rgba(255,255,255,.06);}
+[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked){background:rgba(236,50,55,.16);}
+[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked)::before{content:"";position:absolute;left:0;top:10px;bottom:10px;width:3px;border-radius:3px;background:var(--tp-red);}
+[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p{color:#FFFFFF!important;font-weight:650;}
+.tp-user{display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);padding:12px;border-radius:14px;margin-bottom:18px;}
+.tp-user b{display:block;font-size:.84rem;color:#fff!important;line-height:1.25;}
+.tp-user span{font-size:.7rem;color:#8EA0BE!important;}
+.btn-logout>button{border-radius:12px!important;border:1px solid rgba(255,255,255,.18)!important;box-shadow:none!important;}
+
+/* Componentes reutilizables */
+.tp-avatar{flex:0 0 auto;width:40px;height:40px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;
+  background:var(--tp-red);color:#fff!important;font-weight:700;font-size:.85rem;letter-spacing:.02em;}
+.tp-chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:.74rem;font-weight:650;line-height:1.5;}
+.tp-chip::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;}
+.tp-chip.ok{background:var(--tp-ok-soft);color:var(--tp-ok);} .tp-chip.warn{background:var(--tp-warn-soft);color:var(--tp-warn);}
+.tp-chip.bad{background:var(--tp-bad-soft);color:var(--tp-bad);} .tp-chip.info{background:var(--tp-info-soft);color:var(--tp-info);}
+.tp-chip.neutral{background:#EEF1F5;color:var(--tp-ink-2);}
+.tp-kpi{background:var(--tp-surface);border:1px solid var(--tp-line);border-radius:var(--tp-r-md);padding:16px 18px;box-shadow:var(--tp-sh-1);}
+.tp-kpi-lbl{font-size:.78rem;font-weight:600;color:var(--tp-mute);}
+.tp-kpi-val{font-size:1.7rem;font-weight:700;color:var(--tp-ink);margin-top:2px;}
+.tp-kpi-sub{font-size:.78rem;color:var(--tp-mute);margin-top:2px;}
+.app-footer{margin-top:40px;padding:22px 0;border-top:1px solid var(--tp-line);color:var(--tp-mute);font-size:.78rem;line-height:1.7;text-align:center;}
+
+/* Pantallas medianas y celulares */
+@media (max-width:900px){
+  .block-container{padding:4.2rem .9rem 5rem;}
+  .market-header{padding:18px 18px 16px;border-radius:var(--tp-r-md);margin-bottom:16px;}
+  .market-header::before{left:18px;}
+  .market-header h1{font-size:1.2rem!important;}
+}
+@media (max-width:640px){
+  html,body,input,select,textarea{font-size:16px;}
+  [data-testid="stHorizontalBlock"]{gap:.75rem!important;}
+  .stButton>button,.stDownloadButton>button{min-height:50px;width:100%;}
+  .btn-ingreso>button,.btn-salida>button{min-height:70px!important;}
+  [data-testid="stMetric"],.tp-kpi{padding:14px 16px;}
+  .cal-card{overflow-x:auto;-webkit-overflow-scrolling:touch;padding:14px!important;}
+  .cal-table{min-width:540px;}
+  .boleta-container{padding:16px!important;overflow-x:auto;}
+  [data-testid="stDataFrame"]{overflow-x:auto;}
+  .stTabs [data-baseweb="tab"]{padding:0 10px;font-size:.84rem;}
+}
+@supports (padding:max(0px)){.block-container{padding-bottom:max(3rem,env(safe-area-inset-bottom));}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;}}
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown("""
+<style>
+/* Barra lateral clara */
+[data-testid="stSidebar"]{background:#FFFFFF!important;border-right:1px solid var(--tp-line)!important;}
+[data-testid="stSidebar"] *{color:var(--tp-ink)!important;}
+[data-testid="stSidebar"] [role="radiogroup"] label>div:not(:has([data-testid="stMarkdownContainer"])){display:none!important;}
+[data-testid="stSidebar"] [role="radiogroup"] label p{color:var(--tp-ink-2)!important;font-weight:550;}
+[data-testid="stSidebar"] [role="radiogroup"] label:hover{background:#F3F4F7;}
+[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked){background:var(--tp-red-soft);}
+[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p{color:var(--tp-red-dk)!important;font-weight:700;}
+[data-testid="stSidebarCollapseButton"] *{color:var(--tp-mute)!important;}
+.tp-user{background:#F6F7FA;border:1px solid var(--tp-line);}
+.tp-user b{color:var(--tp-ink)!important;} .tp-user span{color:var(--tp-mute)!important;}
+[data-testid="stSidebar"] .tp-avatar{color:#fff!important;}
+.tp-avatar{width:46px;height:46px;object-fit:cover;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--tp-red);}
+.tp-brand{padding:2px 2px 16px;} .tp-brand-name{font-weight:800;font-size:1rem;letter-spacing:-.01em;}
+[data-testid="stSidebar"] .tp-brand-name span{color:var(--tp-red)!important;} .tp-brand-sub{font-size:.72rem;color:var(--tp-mute)!important;}
+.btn-logout>button{background:#fff!important;border:1px solid var(--tp-line)!important;}
+.btn-logout>button:hover{background:var(--tp-red-soft)!important;border-color:var(--tp-red)!important;}
+/* Marcación: tarjeta de estado y lista */
+.tp-hero{box-sizing:border-box;min-height:132px;background:var(--tp-surface);border:1px solid var(--tp-line);border-radius:var(--tp-r-lg);padding:18px 20px;box-shadow:var(--tp-sh-1);}
+.tp-hero-top{display:flex;gap:14px;align-items:center;margin-bottom:16px;}
+.tp-hero-hi{font-weight:700;font-size:1.08rem;margin-bottom:5px;}
+.tp-prog-lbl{display:flex;justify-content:space-between;font-size:.76rem;color:var(--tp-mute);font-weight:600;margin-bottom:6px;}
+.tp-prog{height:8px;background:#EEF1F5;border-radius:999px;overflow:hidden;}
+.tp-prog i{display:block;height:100%;background:linear-gradient(90deg,var(--tp-red),#F26B6F);border-radius:999px;}
+.tp-row{display:flex;align-items:center;gap:12px;background:var(--tp-surface);border:1px solid var(--tp-line);border-radius:14px;padding:12px 14px;margin-bottom:8px;}
+.tp-row-time{font-weight:700;font-variant-numeric:tabular-nums;min-width:48px;}
+.tp-row-main{flex:1;min-width:0;} .tp-row-main b{display:block;font-size:.9rem;}
+.tp-row-main span{display:block;font-size:.78rem;color:var(--tp-mute);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.tp-chips{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;}
+/* Barra inferior (celular) */
+.st-key-tp_bottomnav{display:none;}
+@media (max-width:900px){
+  .st-key-tp_bottomnav{display:block;position:fixed;left:0;right:0;bottom:0;z-index:999;background:rgba(255,255,255,.96);backdrop-filter:blur(10px);
+    border-top:1px solid var(--tp-line);padding:6px 8px calc(6px + env(safe-area-inset-bottom,0px));box-shadow:0 -8px 24px -12px rgba(15,23,42,.25);}
+  .st-key-tp_bottomnav [data-testid="stHorizontalBlock"]{flex-wrap:nowrap!important;gap:4px!important;}
+  .st-key-tp_bottomnav [data-testid="stColumn"],.st-key-tp_bottomnav [data-testid="column"]{min-width:0!important;flex:1 1 0!important;width:auto!important;}
+  .st-key-tp_bottomnav button{background:transparent!important;color:var(--tp-mute)!important;box-shadow:none!important;border:none!important;min-height:56px!important;padding:4px 2px!important;border-radius:12px!important;}
+  .st-key-tp_bottomnav button>div{display:flex;flex-direction:column;align-items:center;gap:2px;}
+  .st-key-tp_bottomnav button p{font-size:.68rem!important;font-weight:650!important;margin:0;color:inherit!important;}
+  .st-key-tp_bottomnav button[kind="primary"],.st-key-tp_bottomnav [data-testid="stBaseButton-primary"]{background:var(--tp-red-soft)!important;color:var(--tp-red-dk)!important;}
+  .st-key-tp_bottomnav button:hover{transform:none!important;}
+  .tp-row{padding:10px 12px;}
+}
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown("""
+<style>
+/* Ajustes finales: botón de menú, cerrar sesión y opciones */
+[data-testid="stSidebar"] [role="radiogroup"] label>*:not(input):not([data-testid="stMarkdownContainer"]):not(:has([data-testid="stMarkdownContainer"])){display:none!important;}
+[data-testid="stSidebar"] .stButton>button{background:#fff!important;border:1.5px solid var(--tp-red)!important;box-shadow:none!important;}
+[data-testid="stSidebar"] .stButton>button *{color:#111827!important;font-weight:650;}
+[data-testid="stSidebar"] .stButton>button:hover{background:var(--tp-red)!important;}
+[data-testid="stSidebar"] .stButton>button:hover *{color:#111827!important;}
+[data-testid="stSidebar"] .stButton>button{color:#111827!important;}
+[data-testid="stExpandSidebarButton"],[data-testid="stSidebarCollapsedControl"],[data-testid="collapsedControl"]{background:#fff!important;border:1.5px solid var(--tp-red)!important;}
+[data-testid="stExpandSidebarButton"] *,[data-testid="stSidebarCollapsedControl"] *,[data-testid="collapsedControl"] *{color:var(--tp-red)!important;fill:var(--tp-red)!important;}
+[data-testid="stExpandSidebarButton"] button,[data-testid="stSidebarCollapsedControl"] button{background:transparent!important;}
+[data-testid="stExpandSidebarButton"]:hover,[data-testid="stSidebarCollapsedControl"]:hover,[data-testid="collapsedControl"]:hover{background:var(--tp-red)!important;}
+[data-testid="stExpandSidebarButton"]:hover *,[data-testid="stSidebarCollapsedControl"]:hover *,[data-testid="collapsedControl"]:hover *{color:#fff!important;fill:#fff!important;}
+/* Tarjetas de solicitud + línea de tiempo */
+.tp-card{background:var(--tp-surface);border:1px solid var(--tp-line);border-radius:16px;padding:16px 18px;margin-bottom:12px;box-shadow:var(--tp-sh-1);}
+.tp-card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
+.tp-card-title{font-weight:700;font-size:.95rem;} .tp-card-sub{font-size:.76rem;color:var(--tp-mute);margin-top:2px;}
+.tp-card-body{font-size:.86rem;color:var(--tp-ink-2);margin:10px 0 14px;line-height:1.55;}
+.tp-resp{background:#F6F7FA;border-left:3px solid var(--tp-red);border-radius:8px;padding:10px 12px;font-size:.82rem;margin-top:12px;color:var(--tp-ink-2);}
+.tp-tl{display:flex;}
+.tp-tl-step{flex:1;position:relative;text-align:center;font-size:.7rem;font-weight:600;color:var(--tp-mute);}
+.tp-tl-step::before{content:"";position:relative;z-index:1;display:block;width:14px;height:14px;margin:0 auto 6px;border-radius:50%;background:#fff;border:2px solid #CBD2DC;}
+.tp-tl-step::after{content:"";position:absolute;top:6px;left:-50%;width:100%;height:2px;background:#CBD2DC;}
+.tp-tl-step:first-child::after{display:none;}
+.tp-tl-step.done{color:var(--tp-ink-2);} .tp-tl-step.done::before{background:var(--tp-ok);border-color:var(--tp-ok);} .tp-tl-step.done::after{background:var(--tp-ok);}
+.tp-tl-step.now{color:var(--tp-warn);} .tp-tl-step.now::before{background:#F59E0B;border-color:#F59E0B;box-shadow:0 0 0 4px rgba(245,158,11,.2);} .tp-tl-step.now::after{background:var(--tp-ok);}
+.tp-tl-step.bad{color:var(--tp-bad);} .tp-tl-step.bad::before{background:var(--tp-bad);border-color:var(--tp-bad);} .tp-tl-step.bad::after{background:var(--tp-bad);}
+.tp-notif{display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--tp-warn-soft);border-radius:12px;padding:9px 12px;margin:-6px 0 14px;font-size:.78rem;font-weight:650;}
+[data-testid="stSidebar"] .tp-notif,[data-testid="stSidebar"] .tp-notif *{color:var(--tp-warn)!important;}
+/* Tabla en PC, tarjetas en celular */
+.st-key-vista_tarjetas{display:none;}
+@media (max-width:900px){.st-key-vista_tabla{display:none;}.st-key-vista_tarjetas{display:block;}}
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown("""
+<style>
+.tp-card.flat{border:none;box-shadow:none;padding:0;margin:0 0 8px;}
+[class*="st-key-ap_"] button{background:var(--tp-ok)!important;color:#fff!important;border:none!important;}
+[class*="st-key-ap_"] button:hover{background:#087548!important;}
+[class*="st-key-rec_"] button{background:#fff!important;border:1.5px solid var(--tp-red)!important;}
+[class*="st-key-rec_"] button *{color:var(--tp-red)!important;}
+[class*="st-key-rec_"] button:hover{background:var(--tp-red-soft)!important;}
+[class*="st-key-ap_"] button *{color:#fff!important;}
+.tp-sec{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:6px 0 16px;}
+.tp-sec-title{font-size:1.12rem;font-weight:700;color:var(--tp-ink);} .tp-sec-sub{font-size:.8rem;color:var(--tp-mute);}
+.tp-op-head{display:flex;align-items:center;gap:12px;margin-bottom:16px;} .tp-op-head .tp-chip{margin-left:auto;}
+.tp-mgrid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:14px;}
+.tp-m{background:#F6F7FA;border-radius:12px;padding:12px 14px;}
+.tp-m-l{font-size:.66rem;font-weight:700;color:var(--tp-mute);text-transform:uppercase;letter-spacing:.07em;}
+.tp-m-v{font-size:1.05rem;font-weight:700;margin-top:5px;color:var(--tp-ink);font-variant-numeric:tabular-nums;} .tp-m-v.pos{color:var(--tp-ok);}
+.tp-m .tp-prog{margin-top:9px;height:6px;}
+.tp-ngrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px;}
+.tp-note{border:1px solid var(--tp-line);border-radius:12px;padding:12px 14px;}
+.tp-note-t{font-size:.66rem;font-weight:700;color:var(--tp-mute);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;}
+.tp-note ul{margin:0;padding-left:16px;font-size:.84rem;color:var(--tp-ink-2);line-height:1.8;} .tp-note li.mute{color:var(--tp-mute);list-style:none;margin-left:-16px;}
+@media (max-width:900px){.tp-mgrid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown("""
+<style>
+/* Quita el espacio vacío superior: los bloques de estilo y el iframe invisible no deben ocupar lugar */
+[data-testid="stElementContainer"]:has(style),.element-container:has(style),[data-testid="stElementContainer"]:has(iframe[height="0"]),.element-container:has(iframe[height="0"]){display:none!important;}
+.stApp:has([data-testid="stSidebar"][aria-expanded="true"]) .block-container{padding-top:3.2rem;}
+[data-testid="stToolbarActions"],[data-testid="stAppDeployButton"]{display:none!important;}
+.tp-steps{margin:2px 0 14px;padding:0;list-style:none;counter-reset:paso;}
+.tp-steps li{counter-increment:paso;position:relative;padding:5px 0 5px 34px;font-size:.84rem;line-height:1.45;color:var(--tp-ink-2);}
+.tp-steps li::before{content:counter(paso);position:absolute;left:0;top:4px;width:23px;height:23px;border-radius:50%;background:var(--tp-red-soft);color:var(--tp-red-dk);font-weight:700;font-size:.74rem;display:flex;align-items:center;justify-content:center;}
+.tp-steps-t{font-size:.7rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--tp-mute);margin:8px 0 4px;display:flex;gap:8px;align-items:center;}
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown("""
+<style>
+.tp-kpi.al-bad{border-left:4px solid var(--tp-bad);} .tp-kpi.al-warn{border-left:4px solid #F59E0B;} .tp-kpi.al-info{border-left:4px solid var(--tp-info);} .tp-kpi.al-ok{border-left:4px solid var(--tp-ok);}
+.tp-banner{display:flex;align-items:center;gap:16px;border-radius:20px;padding:20px 24px;border:1px solid var(--tp-line);box-shadow:var(--tp-sh-1);}
+.tp-banner.ok{background:linear-gradient(120deg,#E3F6EC,#F4FBF7);border-color:#BFE8D2;} .tp-banner.warn{background:linear-gradient(120deg,#FEF3C7,#FFFBEB);border-color:#F8DE95;} .tp-banner.bad{background:linear-gradient(120deg,#FEE4E2,#FFF5F4);border-color:#F9C4C0;}
+.tp-banner b{font-size:1.1rem;color:var(--tp-ink);display:block;} .tp-banner span.s{font-size:.84rem;color:var(--tp-ink-2);}
+.tp-al-ico{flex:0 0 auto;width:42px;height:42px;border-radius:13px;display:flex;align-items:center;justify-content:center;}
+.tp-al-ico.bad{background:var(--tp-bad-soft);color:var(--tp-bad);} .tp-al-ico.warn{background:var(--tp-warn-soft);color:var(--tp-warn);} .tp-al-ico.info{background:var(--tp-info-soft);color:var(--tp-info);} .tp-al-ico.ok{background:var(--tp-ok-soft);color:var(--tp-ok);}
+/* Saludo de cumpleaños */
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown("""
+<style>
+.stFormSubmitButton>button{background:linear-gradient(135deg,#EC3237,#C9262B)!important;border:none!important;box-shadow:0 14px 26px -12px rgba(236,50,55,.6);}
+.stFormSubmitButton>button *{color:#fff!important;font-weight:700;}
+.tp-callout{display:flex;gap:12px;align-items:flex-start;border-radius:14px;padding:14px 16px;margin:6px 0 14px;font-size:.88rem;line-height:1.55;color:var(--tp-ink-2);border:1px solid var(--tp-line);}
+.tp-callout.info{background:var(--tp-info-soft);border-color:#C7D8FB;} .tp-callout.ok{background:var(--tp-ok-soft);border-color:#BFE8D2;} .tp-callout.warn{background:var(--tp-warn-soft);border-color:#F8DE95;}
+.tp-callout i{flex:0 0 auto;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-style:normal;font-weight:800;font-size:.8rem;background:#fff;}
+.tp-callout.info i{color:var(--tp-info);} .tp-callout.ok i{color:var(--tp-ok);} .tp-callout.warn i{color:var(--tp-warn);}
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown("""
+<style>
+/* Transición entre pestañas: la página entra suavemente */
+@keyframes tpPgA{from{opacity:.5;transform:translateY(12px);}to{opacity:1;transform:none;}}
+@keyframes tpPgB{from{opacity:.5;transform:translateY(12px);}to{opacity:1;transform:none;}}
+.stApp:has(.tp-pg-a) .block-container{animation:tpPgA .45s cubic-bezier(.2,.7,.2,1);}
+.stApp:has(.tp-pg-b) .block-container{animation:tpPgB .45s cubic-bezier(.2,.7,.2,1);}
+[data-testid="stElementContainer"]:has(.tp-pg-a),[data-testid="stElementContainer"]:has(.tp-pg-b),.element-container:has(.tp-pg-a),.element-container:has(.tp-pg-b){display:none!important;}
+[data-testid="stStatusWidget"]{display:none!important;}
+[data-stale="true"],.stale-element{opacity:.45!important;transition:opacity .25s ease;}
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown("""
+<style>
+[data-testid="stSidebar"] a.tp-negosy{display:flex;align-items:center;justify-content:space-between;gap:10px;background:linear-gradient(135deg,#0F172A 0%,#1B2A4A 100%);
+  border-radius:14px;padding:12px 16px;margin:6px 0 12px;text-decoration:none;box-shadow:var(--tp-sh-1);transition:transform .12s ease,box-shadow .12s ease;}
+[data-testid="stSidebar"] a.tp-negosy:hover{transform:translateY(-1px);box-shadow:var(--tp-sh-2);}
+[data-testid="stSidebar"] a.tp-negosy .tp-negosy-t{display:block;font-weight:800;font-size:.95rem;letter-spacing:.01em;color:#FFFFFF!important;}
+[data-testid="stSidebar"] a.tp-negosy .tp-negosy-s{display:block;font-size:.7rem;color:#9FB0CC!important;margin-top:1px;}
+[data-testid="stSidebar"] a.tp-negosy svg{flex:0 0 auto;color:#FF8A8E!important;stroke:#FF8A8E!important;}
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown("""
+<style>
+/* Acciones generales: superficie clara, acento corporativo y contraste accesible. */
+.stButton > button:not([kind="primary"]):not([data-testid="stBaseButton-primary"]),
+.stDownloadButton > button:not([kind="primary"]) {
+  background:#FFFFFF !important; color:#334155 !important;
+  border:1px solid #D9E0E9 !important; border-radius:11px !important;
+  box-shadow:0 2px 5px rgba(24,39,75,.05) !important;
+}
+.stButton > button:not([kind="primary"]):hover,
+.stDownloadButton > button:not([kind="primary"]):hover {
+  background:#FFF4F4 !important; border-color:#EC3237 !important;
+  color:#C8252B !important; box-shadow:0 4px 10px rgba(236,50,55,.09) !important;
+}
+.stButton > button:not([kind="primary"]) *,
+.stDownloadButton > button:not([kind="primary"]) * {color:inherit !important;}
+/* Botón de acción principal: rojo de Tiendas Premium, no negro. */
+.stButton > button[kind="primary"],
+.stButton > button[data-testid="stBaseButton-primary"] {
+  background:#EC3237 !important; border:1px solid #EC3237 !important;
+  color:#FFFFFF !important; border-radius:11px !important;
+  box-shadow:0 3px 9px rgba(236,50,55,.17) !important;
+}
+.stButton > button[kind="primary"]:hover,
+.stButton > button[data-testid="stBaseButton-primary"]:hover {
+  background:#D6282D !important; border-color:#D6282D !important;
+}
+.stButton > button[kind="primary"] *,
+.stButton > button[data-testid="stBaseButton-primary"] * {color:#FFFFFF !important;}
+/* En formularios, guardar/confirmar conserva el acento rojo existente. */
+.stFormSubmitButton > button {border-radius:11px !important;}
+/* Se respetan los botones de ingreso/salida, chatbot, menú lateral y navegación móvil. */
+.btn-ingreso > button, .btn-ingreso button {background:#00A959 !important;color:#fff !important;border-color:#00A959 !important;}
+.btn-salida > button, .btn-salida button {background:#EC3237 !important;color:#fff !important;border-color:#EC3237 !important;}
+.st-key-tp_chat_fab button {border-radius:50% !important;background-color:#EC3237 !important;}
+.st-key-tp_bottomnav button:not([kind="primary"]) {background:transparent !important;border:none !important;box-shadow:none !important;}
+/* Acceso a Negosy: visible sin desentonar con la marca. */
+[data-testid="stSidebar"] a.tp-negosy {
+  background:linear-gradient(120deg,#EC3237 0%,#D52C32 100%) !important;
+  border:1px solid #C9272D !important;border-radius:12px !important;
+  box-shadow:0 4px 12px rgba(236,50,55,.18) !important;
+  transition:transform .15s ease,box-shadow .15s ease !important;
+}
+[data-testid="stSidebar"] a.tp-negosy:hover {
+  transform:translateY(-2px) !important;
+  box-shadow:0 7px 17px rgba(236,50,55,.26) !important;
+}
+[data-testid="stSidebar"] a.tp-negosy .tp-negosy-t {color:#FFFFFF !important;}
+[data-testid="stSidebar"] a.tp-negosy .tp-negosy-s {color:#FFE5E6 !important;}
+[data-testid="stSidebar"] a.tp-negosy svg {color:#FFFFFF !important;stroke:#FFFFFF !important;}
+/* Navegación lateral original: no modificar selección, disposición ni etiquetas. */
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown(r"""<style>
+/* Tablets: controles y tarjetas se acomodan sin desbordar */
+@media screen and (max-width: 900px) {
+  .main .block-container {max-width:100%!important;padding-left:16px!important;padding-right:16px!important;}
+  [data-testid="stMainBlockContainer"] {max-width:100%!important;}
+  [data-testid="stHorizontalBlock"] {flex-wrap:wrap!important;}
+  [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {min-width:min(260px,100%)!important;flex:1 1 260px!important;}
+  .tp-up-calendar {max-width:100%!important;overflow-x:auto!important;-webkit-overflow-scrolling:touch;}
+  .tp-up-calendar table {min-width:850px!important;}
+  .tp-shift-detail-wrap {max-width:100%!important;overflow-x:auto!important;-webkit-overflow-scrolling:touch;}
+  .tp-cal-grid {grid-template-columns:repeat(3,minmax(0,1fr))!important;}
+  .tp-mgrid {grid-template-columns:repeat(2,minmax(0,1fr))!important;}
+}
+/* Teléfonos: una columna, tipografía legible y acciones táctiles */
+@media screen and (max-width: 640px) {
+  html,body {max-width:100%;overflow-x:hidden;}
+  .main .block-container,[data-testid="stMainBlockContainer"] {padding:64px 12px 36px!important;max-width:100%!important;overflow-x:clip;}
+  [data-testid="stHorizontalBlock"] {gap:10px!important;flex-wrap:wrap!important;}
+  [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {flex:1 1 100%!important;min-width:0!important;width:100%!important;}
+  [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] > div {min-width:0!important;}
+  [data-testid="stSidebar"] {max-width:min(86vw,320px)!important;}
+  [data-testid="stSidebar"] [role="radiogroup"] label {min-height:44px;}
+  .market-header {padding:16px!important;margin-bottom:12px!important;}
+  .market-header h1 {font-size:1.18rem!important;line-height:1.3!important;}
+  .tp-kpi,.cal-card,.boleta-container {max-width:100%;box-sizing:border-box;}
+  .tp-kpi-val {font-size:1.4rem!important;}
+  .stButton>button,.stDownloadButton>button,.stFormSubmitButton>button {min-height:46px!important;max-width:100%;white-space:normal!important;line-height:1.3!important;}
+  [data-baseweb="input"] input,[data-baseweb="textarea"] textarea {font-size:16px!important;}
+  [data-testid="stDataFrame"],[data-testid="stDataEditor"] {max-width:100%!important;overflow-x:auto!important;}
+  .stTabs [data-baseweb="tab-list"] {overflow-x:auto!important;flex-wrap:nowrap!important;}
+  .stTabs [data-baseweb="tab"] {flex-shrink:0!important;}
+  .tp-cal-shell {padding:12px!important;margin:8px 0 12px!important;}
+  .tp-cal-head {align-items:flex-start!important;gap:8px!important;}
+  .tp-cal-head h3 {font-size:1rem!important;}
+  .tp-cal-grid {grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:7px!important;}
+  .tp-cal-day {min-height:112px!important;border-radius:10px!important;}
+  .tp-cal-date {padding:8px!important;}
+  .tp-cal-body {padding:9px 8px!important;gap:5px!important;}
+  .tp-cal-body b {font-size:.78rem!important;}
+  .tp-cal-body span {font-size:.73rem!important;}
+  .tp-cal-legend {gap:8px!important;}
+  .tp-up-calendar {width:100%!important;overflow-x:auto!important;border-radius:10px!important;}
+  .tp-up-calendar table {min-width:820px!important;}
+  .tp-up-calendar th.tp-up-person {min-width:145px!important;width:145px!important;}
+  .tp-up-calendar thead th:first-child {width:145px!important;}
+  .tp-up-calendar th.tp-up-person,.tp-up-calendar thead th:first-child {position:sticky;left:0;z-index:2;background:#fff;box-shadow:2px 0 5px rgba(0,0,0,.05);}
+  .tp-up-calendar thead th:first-child {background:#f8fafc;z-index:3;}
+  .tp-shift-detail-wrap {width:100%!important;overflow-x:auto!important;border-radius:0!important;}
+  table.tp-shift-detail {min-width:950px!important;border-radius:0!important;}
+  .tp-mgrid,.tp-id-grid {grid-template-columns:1fr!important;}
+  .tp-hb {display:flex!important;flex-wrap:wrap!important;gap:8px!important;}
+  .tp-hb-t {flex-basis:100%!important;}
+  .tp-lg-hero {padding:16px!important;min-height:0!important;border-radius:16px!important;}
+  .tp-lg-h {font-size:1.32rem!important;line-height:1.25!important;}
+  .tp-lg-p {font-size:.88rem!important;line-height:1.5!important;}
+  .tp-lg-quote {margin-top:12px!important;padding:12px!important;}
+  .tp-lg-quote p {font-size:.86rem!important;}
+  .tp-lg-who .tp-avatar {width:64px!important;height:64px!important;}
+  .tp-lg-t {font-size:1.2rem!important;}
+  .tp-lg-note {font-size:.71rem!important;line-height:1.4!important;}
+  .st-key-tp_chat_fab {right:10px!important;top:60px!important;}
+  .st-key-tp_chat_panel {right:8px!important;top:125px!important;width:calc(100vw - 16px)!important;max-height:65dvh!important;}
+}
+@media screen and (max-width:380px) {
+  .main .block-container,[data-testid="stMainBlockContainer"] {padding-left:9px!important;padding-right:9px!important;}
+  .tp-cal-grid {grid-template-columns:1fr!important;}
+  .tp-cal-day {min-height:0!important;}
+  .tp-cal-body {gap:3px!important;}
+  .tp-cal-legend {font-size:.65rem!important;}
+}
+</style>""", unsafe_allow_html=True)
+
+st.markdown(r"""<style>
+@media (max-width: 767px) {
+  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+  body, .stApp, [data-testid="stAppViewContainer"] { width:100%; max-width:100%; }
+  [data-testid="stMainBlockContainer"], .main .block-container {
+    width:100%!important; max-width:100%!important;
+    padding: max(70px, env(safe-area-inset-top)) 12px calc(28px + env(safe-area-inset-bottom))!important;
+    box-sizing:border-box!important;
+  }
+  /* No recortar elementos desplegables ni ventanas de Streamlit */
+  [data-testid="stMain"], [data-testid="stVerticalBlock"], [data-testid="stVerticalBlockBorderWrapper"] {
+    min-width:0!important; max-width:100%;
+  }
+  [data-testid="stHorizontalBlock"] { flex-wrap:wrap!important; gap:12px!important; align-items:stretch!important; }
+  [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
+    flex:1 1 100%!important; width:100%!important; min-width:0!important; max-width:100%!important;
+  }
+  [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] > div { min-width:0!important; }
+  [data-testid="stForm"], [data-testid="stExpander"], [data-testid="stVerticalBlockBorderWrapper"] {
+    max-width:100%; box-sizing:border-box;
+  }
+  [data-testid="stForm"] { padding:12px!important; }
+  [data-testid="stWidgetLabel"] p { line-height:1.35!important; }
+  [data-testid="stTextInput"] input, [data-testid="stNumberInput"] input,
+  [data-testid="stTextArea"] textarea, [data-baseweb="select"] input {
+    font-size:16px!important; min-height:44px;
+  }
+  [data-testid="stButton"] button, [data-testid="stFormSubmitButton"] button,
+  [data-testid="stDownloadButton"] button, [data-testid="stPopover"] button {
+    min-height:48px!important; width:100%; touch-action:manipulation;
+    white-space:normal!important; overflow-wrap:anywhere; line-height:1.3!important;
+  }
+  /* Ingreso y salida: botones cómodos y diferenciados en móvil */
+  .btn-ingreso button, .btn-salida button { min-height:60px!important; font-size:1rem!important; }
+  .tp-hero, .tp-card, .tp-kpi, .market-header, .cal-card, .boleta-container {
+    max-width:100%!important; min-width:0!important; box-sizing:border-box!important;
+    overflow-wrap:anywhere;
+  }
+  .tp-hero-top { flex-wrap:wrap; }
+  .tp-hero-hi { overflow-wrap:anywhere; }
+  .tp-kpi-val { overflow-wrap:anywhere; font-size:clamp(1.25rem,6vw,1.7rem)!important; }
+  .tp-mgrid, .tp-gridk, .tp-id-grid { grid-template-columns:minmax(0,1fr)!important; }
+  .tp-cal-grid { grid-template-columns:repeat(2,minmax(0,1fr))!important; }
+  .tp-up-calendar, .tp-shift-detail-wrap, .cal-card, .boleta-container,
+  [data-testid="stDataFrame"], [data-testid="stDataEditor"] {
+    max-width:100%!important; overflow-x:auto!important; -webkit-overflow-scrolling:touch;
+  }
+  .stTabs [data-baseweb="tab-list"] { max-width:100%; overflow-x:auto!important; scrollbar-width:thin; }
+  .stTabs [data-baseweb="tab"] { white-space:nowrap!important; min-height:44px; }
+  /* Dialogos de cumpleaños, botellas y formularios: visibles sin salir de pantalla */
+  [role="dialog"] { max-width:calc(100vw - 20px)!important; max-height:calc(100dvh - 32px)!important;
+    overflow-y:auto!important; box-sizing:border-box!important; }
+  [data-testid="stDialog"] { max-width:100vw!important; }
+  [data-testid="stDialog"] [data-testid="stVerticalBlock"] { min-width:0!important; }
+  [data-testid="stDialog"] button { min-height:48px!important; white-space:normal!important; }
+  [data-testid="stSidebar"] { width:min(88vw,330px)!important; max-width:min(88vw,330px)!important; }
+  [data-testid="stSidebar"] button { min-height:44px; }
+  /* Chatbot: sin tapar la navegación ni el contenido inferior */
+  .st-key-tp_chat_fab { right:12px!important; top:70px!important; }
+  .st-key-tp_chat_panel { right:8px!important; top:135px!important;
+    width:calc(100vw - 16px)!important; max-width:calc(100vw - 16px)!important;
+    max-height:calc(100dvh - 150px)!important; overflow-y:auto!important; }
+  [data-testid="stToastContainer"] { max-width:calc(100vw - 20px)!important; }
+  [data-testid="stToast"] { max-width:calc(100vw - 24px)!important; }
+}
+@media (max-width: 390px) {
+  [data-testid="stMainBlockContainer"], .main .block-container { padding-left:9px!important; padding-right:9px!important; }
+  .tp-cal-grid { grid-template-columns:minmax(0,1fr)!important; }
+  .tp-cal-day { min-height:0!important; }
+}
+@media (orientation: landscape) and (max-height: 480px) {
+  [role="dialog"] { max-height:calc(100dvh - 12px)!important; }
+  .st-key-tp_chat_panel { top:65px!important; max-height:calc(100dvh - 75px)!important; }
+}
+</style>""", unsafe_allow_html=True)
+
+st.markdown(r"""
+<style>
+/* =====================================================================
+   Componentes propios de Inventario, escritos con los tokens de Asistencia
+   (mismos colores, radios, sombras y tipografía: --tp-*)
+   ===================================================================== */
+.section-title{font-size:1.02rem;font-weight:700;color:var(--tp-ink);margin:20px 0 10px;letter-spacing:-.01em;}
+.card{background:var(--tp-surface);border:1px solid var(--tp-line);border-radius:var(--tp-r-md);padding:14px 18px;margin-bottom:12px;box-shadow:var(--tp-sh-1);color:var(--tp-ink-2);font-size:.9rem;line-height:1.5;}
+.card b{color:var(--tp-ink);}
+.mobile-note{background:var(--tp-info-soft);border:1px solid #C7D8FB;border-radius:14px;padding:12px 16px;margin:6px 0 14px;font-size:.84rem;line-height:1.55;color:var(--tp-ink-2);}
+.mobile-note b{color:var(--tp-ink);}
+.tp-kpi{min-height:128px;}
+
+/* Ficha de producto */
+.product-card{background:var(--tp-surface);border:1px solid var(--tp-line);border-top:3px solid var(--tp-red);border-radius:var(--tp-r-md);padding:18px 20px;margin:10px 0 15px;box-shadow:var(--tp-sh-1);}
+.product-name{font-size:1.15rem;font-weight:700;color:var(--tp-ink);line-height:1.25;}
+.product-meta{color:var(--tp-ink-2);font-size:.82rem;margin-top:4px;}
+.stock-box{background:#F6F7FA;border:1px solid var(--tp-line);border-radius:12px;padding:13px;text-align:center;}
+.stock-label{font-size:.66rem;font-weight:700;color:var(--tp-mute);text-transform:uppercase;letter-spacing:.07em;}
+.stock-number{font-size:1.5rem;font-weight:700;color:var(--tp-ink);margin-top:4px;font-variant-numeric:tabular-nums;}
+
+/* Consulta de precios */
+.price-hero{background:var(--tp-surface);border:1px solid var(--tp-line);border-radius:var(--tp-r-lg);padding:26px 22px;text-align:center;box-shadow:var(--tp-sh-1);margin:14px 0;}
+.price-hero .price-label{font-size:.72rem;font-weight:700;text-transform:uppercase;color:var(--tp-mute);letter-spacing:.09em;}
+.price-hero .price-value{font-size:3rem;font-weight:800;margin:6px 0 2px;line-height:1;color:var(--tp-ink);font-variant-numeric:tabular-nums;}
+.price-hero .price-sub{font-size:.85rem;color:var(--tp-mute);}
+.price-info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-top:12px;}
+.price-info-item{background:#F6F7FA;border-radius:12px;padding:12px;text-align:center;}
+.price-info-item .lbl{font-size:.66rem;font-weight:700;color:var(--tp-mute);text-transform:uppercase;letter-spacing:.07em;}
+.price-info-item .val{font-size:1.05rem;font-weight:700;margin-top:5px;color:var(--tp-ink);font-variant-numeric:tabular-nums;}
+
+/* Plan de compras (Stock Intelligence) */
+.psi-executive{position:relative;background:var(--tp-surface);border:1px solid var(--tp-line);border-radius:var(--tp-r-lg);padding:22px 24px 20px;margin:10px 0 18px;box-shadow:var(--tp-sh-1);}
+.psi-executive::before{content:"";position:absolute;left:24px;top:0;width:36px;height:4px;background:var(--tp-red);border-radius:0 0 4px 4px;}
+.psi-executive h3{font-size:1.04rem;color:var(--tp-ink);margin:4px 0 7px;font-weight:700;}
+.psi-executive p{font-size:.92rem;color:var(--tp-ink-2);line-height:1.6;margin:0;}
+.psi-eyebrow{color:var(--tp-mute);font-size:.7rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;margin:12px 0 8px;}
+.psi-section{display:flex;align-items:center;gap:10px;margin:22px 0 12px;color:var(--tp-ink);font-size:1.08rem;font-weight:700;}
+.psi-section .psi-index{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:9px;background:var(--tp-red-soft);color:var(--tp-red-dk);font-size:.8rem;font-weight:700;}
+.psi-smallnote{color:var(--tp-mute);font-size:.83rem;margin:0 0 10px;}
+
+@media (max-width:640px){
+  .price-hero{padding:22px 16px;} .price-hero .price-value{font-size:2.3rem;}
+  .product-card{padding:14px;} .psi-executive{padding:18px 16px 16px;}
+  .psi-executive::before{left:16px;}
+}
+</style>
+""", unsafe_allow_html=True)
+
+
+# ---------------------------------------------------------
+# COMPONENTES UI REUTILIZABLES (mismos que la app de Asistencia)
+# ---------------------------------------------------------
+_html = html
+NEGOSY_URL = "https://app.negosy.com/accounts/login/"
+# Opcional: pega aquí el enlace de la app de Asistencia para mostrar el acceso directo en la barra lateral.
+ASISTENCIA_URL = ""
+
+# Seguridad de sesión (idéntica a Asistencia): 10 h máximo y cierre tras 30 min sin actividad.
+SESION_MAX_SEGUNDOS = 10 * 60 * 60
+INACTIVIDAD_MAX_SEGUNDOS = 30 * 60
+# Si prefieres NO mostrar el nombre al escribir el usuario (antes de autenticar), pon False.
+LOGIN_MOSTRAR_FOTO = True
+
+
+def ui_iniciales(nombre):
+    p = [x for x in str(nombre).split() if x]
+    return (p[0][0] + (p[1][0] if len(p) > 1 else "")).upper() if p else "?"
+
+
+def ui_avatar(nombre, size=46):
+    dim = f"width:{size}px;height:{size}px;font-size:{max(12, int(size * 0.34))}px;"
+    return f'<span class="tp-avatar" style="{dim}">{_html.escape(ui_iniciales(nombre))}</span>'
+
+
+def ui_chip(texto, tipo="neutral"):
+    """tipo: ok | warn | bad | info | neutral"""
+    return f'<span class="tp-chip {tipo}">{texto}</span>'
+
+
+def ui_kpi(etiqueta, valor, detalle=""):
+    sub = f'<div class="tp-kpi-sub">{detalle}</div>' if detalle else ""
+    return f'<div class="tp-kpi"><div class="tp-kpi-lbl">{etiqueta}</div><div class="tp-kpi-val">{valor}</div>{sub}</div>'
+
+
+def ui_card_container(key):
+    """Contenedor que ES la tarjeta blanca (todo el contenido dentro del mismo fondo)."""
+    try:
+        return st.container(key=f"tpc_{key}")
+    except TypeError:
+        return st.container(border=True)
+
+
+def ui_callout(texto, tono="info"):
+    t = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", _html.escape(str(texto)))
+    ic = {"info": "i", "ok": "✓", "warn": "!"}[tono]
+    st.markdown(f'<div class="tp-callout {tono}"><i>{ic}</i><div>{t}</div></div>', unsafe_allow_html=True)
+
+
+def ui_seccion(titulo, sub=""):
+    s = f'<div class="tp-sec-sub">{_html.escape(sub)}</div>' if sub else ""
+    st.markdown(f'<div class="tp-sec"><div><div class="tp-sec-title">{_html.escape(titulo)}</div>{s}</div></div>', unsafe_allow_html=True)
+
+
+def ui_icono_app():
+    """Ícono cuadrado con fondo blanco y el logo centrado (180 px iPhone, 512 px Android)."""
+    from PIL import Image, ImageDraw, ImageFont
+
+    def _icono(sz):
+        im = Image.new("RGBA", (sz, sz), (255, 255, 255, 255))
+        try:
+            ruta = FAVICON_PATH if os.path.exists(FAVICON_PATH) else LOGO_PATH
+            lg = Image.open(ruta).convert("RGBA")
+            lg.thumbnail((int(sz * 0.74), int(sz * 0.74)), Image.LANCZOS)
+            im.paste(lg, ((sz - lg.width) // 2, (sz - lg.height) // 2), lg)
+        except Exception:
+            d = ImageDraw.Draw(im)
+            d.rounded_rectangle((sz * .12, sz * .12, sz * .88, sz * .88), radius=sz * .2, fill=(236, 50, 55, 255))
+            try:
+                d.text((sz * .5, sz * .5), "P", fill="white", anchor="mm", font=ImageFont.load_default(size=int(sz * .5)))
+            except Exception:
+                pass
+        buf = io.BytesIO()
+        im.convert("RGB").save(buf, "PNG")
+        return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
+
+    return _icono(180), _icono(512)
+
+
+def ui_pwa_inyectar():
+    """Pide al celular: ícono propio, nombre corto, color de marca y pantalla completa al añadir a inicio."""
+    try:
+        i180, i512 = ui_icono_app()
+    except Exception:
+        return
+    js = """<script>(function(){try{
+var d=window.parent.document,h=d.head;
+function meta(n,c){var m=d.querySelector('meta[name="'+n+'"]');if(!m){m=d.createElement('meta');m.name=n;h.appendChild(m);}m.content=c;}
+d.querySelectorAll('link[rel="apple-touch-icon"],link[rel="manifest"]').forEach(function(e){e.remove();});
+var a=d.createElement('link');a.rel='apple-touch-icon';a.setAttribute('sizes','180x180');a.href='__I180__';h.appendChild(a);
+meta('apple-mobile-web-app-capable','yes');meta('mobile-web-app-capable','yes');
+meta('apple-mobile-web-app-title','Inventario');meta('application-name','Inventario');
+meta('apple-mobile-web-app-status-bar-style','default');meta('theme-color','#EC3237');
+var L=window.parent.location,mf={name:'Inventario · Tiendas Premium',short_name:'Inventario',start_url:L.origin+L.pathname,scope:L.origin+'/',display:'standalone',
+background_color:'#FFFFFF',theme_color:'#EC3237',icons:[{src:'__I512__',sizes:'512x512',type:'image/png',purpose:'any'}]};
+var m=d.createElement('link');m.rel='manifest';m.href='data:application/manifest+json,'+encodeURIComponent(JSON.stringify(mf));h.appendChild(m);
+}catch(e){}})();</script>"""
+    components.html(js.replace("__I180__", i180).replace("__I512__", i512), height=0)
+
+
+def ui_guia_instalar(cont):
+    ua = ""
+    try:
+        ua = str(st.context.headers.get("User-Agent", ""))
+    except Exception:
+        pass
+    es_ios, es_and = any(x in ua for x in ("iPhone", "iPad", "iPod")), "Android" in ua
+    ios = ('<div class="tp-steps-t">iPhone · Safari ' + (ui_chip("Tu dispositivo", "ok") if es_ios else "") + '</div><ol class="tp-steps">'
+           '<li>Abre esta página en <b>Safari</b>.</li><li>Toca el botón <b>Compartir</b> (cuadro con flecha hacia arriba).</li>'
+           '<li>Elige <b>Añadir a pantalla de inicio</b>.</li><li>Toca <b>Añadir</b>. Listo: aparece el ícono de Inventario.</li></ol>')
+    andr = ('<div class="tp-steps-t">Android · Chrome ' + (ui_chip("Tu dispositivo", "ok") if es_and else "") + '</div><ol class="tp-steps">'
+            '<li>Abre esta página en <b>Chrome</b>.</li><li>Toca el menú <b>⋮</b> (arriba a la derecha).</li>'
+            '<li>Elige <b>Instalar app</b> o <b>Añadir a pantalla de inicio</b>.</li><li>Confirma con <b>Instalar</b>.</li></ol>')
+    with cont.expander("Instalar en tu celular"):
+        st.markdown((andr + ios) if es_and else (ios + andr), unsafe_allow_html=True)
+        st.caption("Cada vez que abras la app te pedirá tu usuario y contraseña por seguridad.")
+
+
+def _norm_txt(x):
+    import unicodedata
+    return "".join(c for c in unicodedata.normalize("NFD", str(x).lower()) if unicodedata.category(c) != "Mn")
+
+
+def _ir_a(destino):
+    """Navega a una sección y limpia la búsqueda (se usa en botones con on_click)."""
+    st.session_state["pagina"] = destino
+    st.session_state["gs_q"] = ""
+
+
+def _limpiar_busqueda():
+    st.session_state["gs_q"] = ""
+
+
 
 # =========================================================
 # UTILIDADES
@@ -1942,13 +2143,9 @@ def alertas_operativas(inv, sesiones):
 # =========================================================
 
 def header(titulo, subtitulo=""):
+    sub = f"<p>{safe_text(subtitulo)}</p>" if subtitulo else ""
     st.markdown(
-        f"""
-        <div class='premium-header'>
-            <h1>{safe_text(titulo)}</h1>
-            <p>{safe_text(subtitulo)}</p>
-        </div>
-        """,
+        f'<div class="market-header"><h1>{safe_text(titulo)}</h1>{sub}</div>',
         unsafe_allow_html=True,
     )
 
@@ -1964,261 +2161,20 @@ def footer():
 
 
 def kpi(label, value, note=""):
-    st.markdown(
-        f"""
-        <div class='kpi-card'>
-            <div class='kpi-label'>{safe_text(label)}</div>
-            <div class='kpi-value'>{safe_text(value)}</div>
-            <div class='kpi-note'>{safe_text(note)}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    st.markdown(ui_kpi(safe_text(label), safe_text(value), safe_text(note)), unsafe_allow_html=True)
 
 
 def badge(tipo):
     clase = {
-        "OK": "badge-ok",
-        "FALTANTE": "badge-faltante",
-        "SOBRANTE": "badge-sobrante",
-        "ABIERTA": "badge-abierta",
-        "CERRADA": "badge-cerrada",
-    }.get(str(tipo).upper(), "badge-cerrada")
-    return f"<span class='badge {clase}'>{safe_text(tipo)}</span>"
+        "OK": "ok",
+        "FALTANTE": "bad",
+        "SOBRANTE": "ok",
+        "ABIERTA": "info",
+        "CERRADA": "neutral",
+    }.get(str(tipo).upper(), "neutral")
+    return ui_chip(safe_text(tipo), clase)
 
 
-# Adaptación visual de la app de Asistencias. Solo interfaz: no cambia datos ni procesos.
-st.markdown("""
-<style>
-:root{
-  --tp-red:#EC3237; --tp-red-dk:#C9262B; --tp-red-soft:#FDECEC;
-  --tp-ink:#0F172A; --tp-ink-2:#334155; --tp-mute:#64748B;
-  --tp-bg:#F3F4F7; --tp-surface:#FFFFFF; --tp-line:#E3E6EC;
-  --tp-ok:#0B8F57; --tp-ok-soft:#E3F6EC; --tp-warn:#B45309; --tp-warn-soft:#FEF3C7;
-  --tp-bad:#B42318; --tp-bad-soft:#FEE4E2; --tp-info:#1D4ED8; --tp-info-soft:#E0EAFF;
-  --tp-r-sm:10px; --tp-r-md:14px; --tp-r-lg:20px;
-  --tp-sh-1:0 1px 2px rgba(15,23,42,.05),0 1px 3px rgba(15,23,42,.04);
-  --tp-sh-2:0 8px 24px -8px rgba(15,23,42,.14);
-}
-.stApp{background:var(--tp-bg);}
-.block-container{max-width:1240px;padding-top:4.2rem;padding-bottom:3rem;}
-#MainMenu,footer,[data-testid="stDecoration"],[data-testid="stAppDeployButton"],[data-testid="stMainMenu"],.stDeployButton{visibility:hidden;display:none;}
-header[data-testid="stHeader"]{background:transparent!important;}
-[data-testid="stToolbar"]{visibility:visible!important;display:flex!important;}
-/* Botón para abrir el menú de vistas (siempre visible) */
-[data-testid="stExpandSidebarButton"],[data-testid="stSidebarCollapsedControl"],[data-testid="collapsedControl"]{
-  display:flex!important;visibility:visible!important;opacity:1!important;z-index:1000;
-  position:fixed;top:12px;left:12px;width:46px;height:46px;align-items:center;justify-content:center;
-  background:var(--tp-red)!important;border-radius:14px;box-shadow:var(--tp-sh-2);}
-[data-testid="stExpandSidebarButton"] *,[data-testid="stSidebarCollapsedControl"] *,[data-testid="collapsedControl"] *{color:#fff!important;fill:#fff!important;}
-[data-testid="stExpandSidebarButton"]:hover,[data-testid="stSidebarCollapsedControl"]:hover{background:var(--tp-red)!important;}
-[data-testid="stSidebarCollapseButton"] button,[data-testid="stSidebarCollapseButton"] *{color:#AEB8CC!important;}
-h1,h2,h3,h4,h5{color:var(--tp-ink);letter-spacing:-.01em;}
-h5{font-size:1.02rem!important;font-weight:650!important;margin:.4rem 0 .6rem!important;}
-[data-testid="stMetricValue"],.info-value,.tp-kpi-val{font-variant-numeric:tabular-nums;}
-:focus-visible{outline:3px solid rgba(236,50,55,.35)!important;outline-offset:2px;border-radius:8px;}
-
-/* Encabezado de página */
-.market-header{position:relative;background:var(--tp-surface);border:1px solid var(--tp-line);border-left:1px solid var(--tp-line);
-  border-radius:var(--tp-r-lg);padding:22px 26px 20px;margin-bottom:22px;box-shadow:var(--tp-sh-1);}
-.market-header::before{content:"";position:absolute;left:26px;top:0;width:36px;height:4px;background:var(--tp-red);border-radius:0 0 4px 4px;}
-.market-header h1{font-size:1.45rem!important;font-weight:700!important;margin-top:6px!important;color:var(--tp-ink)!important;}
-.market-header p{font-size:.9rem;color:var(--tp-mute);}
-
-/* Tarjetas y contenedores */
-[data-testid="stVerticalBlockBorderWrapper"]:has(> div > [data-testid="stVerticalBlock"]){border-radius:var(--tp-r-md);}
-div[data-testid="stVerticalBlockBorderWrapper"]{border-color:var(--tp-line)!important;background:var(--tp-surface);box-shadow:var(--tp-sh-1);}
-.info-card,.cal-card{border-radius:var(--tp-r-md)!important;border:1px solid var(--tp-line)!important;box-shadow:var(--tp-sh-1);}
-div[data-testid="stForm"],div[data-testid="stExpander"]{border-radius:var(--tp-r-md)!important;border:1px solid var(--tp-line)!important;box-shadow:var(--tp-sh-1)!important;}
-[data-testid="stMetric"]{background:var(--tp-surface);border:1px solid var(--tp-line);border-radius:var(--tp-r-md);padding:16px 18px;box-shadow:var(--tp-sh-1);}
-[data-testid="stMetricLabel"] p{font-size:.78rem!important;font-weight:600;color:var(--tp-mute)!important;}
-[data-testid="stMetricValue"]{font-weight:700;color:var(--tp-ink);}
-
-/* Botones */
-.stButton>button,.stDownloadButton>button,.stFormSubmitButton>button{min-height:46px;border-radius:var(--tp-r-sm)!important;font-weight:600!important;font-size:.9rem!important;
-  box-shadow:var(--tp-sh-1);transition:transform .12s ease,box-shadow .12s ease,background-color .12s ease!important;}
-.stButton>button:hover{transform:translateY(-1px);box-shadow:var(--tp-sh-2);}
-.stButton>button:active{transform:translateY(0) scale(.98);}
-.stDownloadButton>button{background:var(--tp-surface)!important;color:var(--tp-ink)!important;border:1px solid var(--tp-line)!important;}
-.stDownloadButton>button:hover{border-color:var(--tp-ink)!important;background:#F8FAFC!important;}
-.btn-ingreso>button,.btn-salida>button{min-height:64px!important;font-size:1.05rem!important;border-radius:var(--tp-r-md)!important;}
-.btn-ingreso>button{background:var(--tp-ok)!important;}
-.btn-ingreso>button:hover{background:#087548!important;}
-
-/* Campos */
-[data-baseweb="input"],[data-baseweb="select"]>div,[data-baseweb="textarea"],.stDateInput>div>div,.stNumberInput>div>div{border-radius:var(--tp-r-sm)!important;}
-[data-baseweb="input"],[data-baseweb="textarea"],[data-baseweb="select"]>div{border:1px solid var(--tp-line)!important;background:var(--tp-surface)!important;}
-[data-baseweb="input"]:focus-within,[data-baseweb="textarea"]:focus-within,[data-baseweb="select"]>div:focus-within{border-color:var(--tp-red)!important;box-shadow:0 0 0 3px rgba(236,50,55,.15)!important;}
-[data-testid="stWidgetLabel"] p{font-size:.82rem;font-weight:600;color:var(--tp-ink-2);}
-
-/* Pestañas */
-.stTabs [data-baseweb="tab-list"]{gap:6px;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid var(--tp-line);}
-.stTabs [data-baseweb="tab-list"]::-webkit-scrollbar{display:none;}
-.stTabs [data-baseweb="tab"]{height:46px;padding:0 14px;font-weight:600;color:var(--tp-mute);white-space:nowrap;}
-.stTabs [aria-selected="true"]{color:var(--tp-ink)!important;}
-.stTabs [data-baseweb="tab-highlight"]{background:var(--tp-red)!important;height:3px;border-radius:3px;}
-
-/* Tablas, alertas, progreso */
-[data-testid="stDataFrame"]{border:1px solid var(--tp-line);border-radius:var(--tp-r-md);overflow:hidden;box-shadow:var(--tp-sh-1);}
-[data-testid="stAlert"]{border-radius:var(--tp-r-md);border:1px solid var(--tp-line);}
-.stProgress>div>div>div>div{background:var(--tp-red)!important;border-radius:999px;}
-.stProgress>div>div>div{border-radius:999px;}
-
-/* Barra lateral como navegación */
-[data-testid="stSidebar"]{background:linear-gradient(180deg,#0F172A 0%,#111C33 100%)!important;border-right:none;}
-[data-testid="stSidebar"] [data-testid="stWidgetLabel"]{display:none;}
-[data-testid="stSidebar"] [role="radiogroup"]{gap:2px;}
-[data-testid="stSidebar"] [role="radiogroup"] label{position:relative;padding:10px 14px 10px 16px;border-radius:12px;cursor:pointer;transition:background .12s ease;}
-[data-testid="stSidebar"] [role="radiogroup"] label>div:first-child{display:none;}
-[data-testid="stSidebar"] [role="radiogroup"] label p{font-size:.88rem;font-weight:500;color:#AEB8CC!important;}
-[data-testid="stSidebar"] [role="radiogroup"] label:hover{background:rgba(255,255,255,.06);}
-[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked){background:rgba(236,50,55,.16);}
-[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked)::before{content:"";position:absolute;left:0;top:10px;bottom:10px;width:3px;border-radius:3px;background:var(--tp-red);}
-[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p{color:#FFFFFF!important;font-weight:650;}
-.tp-user{display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);padding:12px;border-radius:14px;margin-bottom:18px;}
-.tp-user b{display:block;font-size:.84rem;color:#fff!important;line-height:1.25;}
-.tp-user span{font-size:.7rem;color:#8EA0BE!important;}
-.btn-logout>button{border-radius:12px!important;border:1px solid rgba(255,255,255,.18)!important;box-shadow:none!important;}
-
-/* Componentes reutilizables */
-.tp-avatar{flex:0 0 auto;width:40px;height:40px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;
-  background:var(--tp-red);color:#fff!important;font-weight:700;font-size:.85rem;letter-spacing:.02em;}
-.tp-chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:.74rem;font-weight:650;line-height:1.5;}
-.tp-chip::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;}
-.tp-chip.ok{background:var(--tp-ok-soft);color:var(--tp-ok);} .tp-chip.warn{background:var(--tp-warn-soft);color:var(--tp-warn);}
-.tp-chip.bad{background:var(--tp-bad-soft);color:var(--tp-bad);} .tp-chip.info{background:var(--tp-info-soft);color:var(--tp-info);}
-.tp-chip.neutral{background:#EEF1F5;color:var(--tp-ink-2);}
-.tp-kpi{background:var(--tp-surface);border:1px solid var(--tp-line);border-radius:var(--tp-r-md);padding:16px 18px;box-shadow:var(--tp-sh-1);}
-.tp-kpi-lbl{font-size:.78rem;font-weight:600;color:var(--tp-mute);}
-.tp-kpi-val{font-size:1.7rem;font-weight:700;color:var(--tp-ink);margin-top:2px;}
-.tp-kpi-sub{font-size:.78rem;color:var(--tp-mute);margin-top:2px;}
-.app-footer{margin-top:40px;padding:22px 0;border-top:1px solid var(--tp-line);color:var(--tp-mute);font-size:.78rem;line-height:1.7;text-align:center;}
-
-/* Pantallas medianas y celulares */
-@media (max-width:900px){
-  .block-container{padding:4.2rem .9rem 5rem;}
-  .market-header{padding:18px 18px 16px;border-radius:var(--tp-r-md);margin-bottom:16px;}
-  .market-header::before{left:18px;}
-  .market-header h1{font-size:1.2rem!important;}
-}
-@media (max-width:640px){
-  html,body,input,select,textarea{font-size:16px;}
-  [data-testid="stHorizontalBlock"]{gap:.75rem!important;}
-  .stButton>button,.stDownloadButton>button{min-height:50px;width:100%;}
-  .btn-ingreso>button,.btn-salida>button{min-height:70px!important;}
-  [data-testid="stMetric"],.tp-kpi{padding:14px 16px;}
-  .cal-card{overflow-x:auto;-webkit-overflow-scrolling:touch;padding:14px!important;}
-  .cal-table{min-width:540px;}
-  .boleta-container{padding:16px!important;overflow-x:auto;}
-  [data-testid="stDataFrame"]{overflow-x:auto;}
-  .stTabs [data-baseweb="tab"]{padding:0 10px;font-size:.84rem;}
-}
-@supports (padding:max(0px)){.block-container{padding-bottom:max(3rem,env(safe-area-inset-bottom));}}
-@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;}}
-</style>
-""", unsafe_allow_html=True)
-st.markdown("""<style>
-/* Accesibilidad: contraste legible en acciones */
-.stButton>button[kind="primary"],.stFormSubmitButton>button[kind="primary"]{background:#EC3237!important;color:#FFFFFF!important;}
-.stButton>button[kind="secondary"]{background:#FFFFFF!important;color:#0F172A!important;border:1px solid #E3E6EC!important;}
-[data-testid="stSidebar"] .stButton>button{background:rgba(255,255,255,.08)!important;color:#FFFFFF!important;border:1px solid rgba(255,255,255,.16)!important;}
-[data-testid="stSidebar"] .stButton>button:hover{background:rgba(236,50,55,.24)!important;}
-.tp-lg-hero{position:relative;overflow:hidden;border-radius:24px;padding:34px;min-height:590px;color:#fff;display:flex;flex-direction:column;justify-content:space-between;background:linear-gradient(150deg,#0B1220 0%,#111C33 55%,#1B2A4A 100%);box-shadow:0 24px 48px -24px rgba(15,23,42,.5);}
-.tp-lg-hero:before{content:"";position:absolute;width:440px;height:440px;right:-180px;top:-160px;border-radius:50%;background:radial-gradient(circle,rgba(236,50,55,.5),transparent 70%);pointer-events:none;}
-.tp-lg-hero>*{position:relative;z-index:1;}
-.tp-lg-logo{display:inline-flex;background:#fff;border-radius:14px;padding:10px 16px;}
-.tp-lg-k{font-size:.75rem;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:#FF8A8E;margin:32px 0 10px;}
-.tp-lg-h{font-size:2rem;font-weight:800;line-height:1.18;color:#fff;margin:0 0 16px;}
-.tp-lg-h em{font-style:normal;color:#FF7A7D;}
-.tp-lg-p{font-size:.95rem;color:#CBD5E1;line-height:1.7;}
-.tp-lg-feat{display:grid;gap:12px;margin-top:24px;}
-.tp-lg-feat div{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:13px;color:#E6ECF8;font-size:.88rem;}
-.tp-lg-quote{margin-top:30px;padding:18px;border-left:4px solid #EC3237;border-radius:12px;background:rgba(255,255,255,.09);color:#fff;}
-.tp-lg-quote small{display:block;color:#FF8A8E;text-transform:uppercase;font-weight:700;font-size:.7rem;letter-spacing:.1em;margin-bottom:8px;}
-.tp-lg-quote p{color:#F1F5F9;margin:0;font-weight:600;}
-.tp-login-title{text-align:center;font-size:1.55rem;font-weight:800;color:#0F172A;margin:12px 0 4px;}
-.tp-login-sub{text-align:center;color:#64748B;font-size:.88rem;margin-bottom:24px;}
-.tp-login-lock{text-align:center;margin:8px auto 0;width:58px;height:58px;line-height:58px;border-radius:16px;background:#FDECEC;color:#EC3237;font-size:1.65rem;}
-[data-testid="stSidebar"] .tp-brand-name{font-size:.92rem;font-weight:800;color:#fff!important;letter-spacing:.04em;}
-[data-testid="stSidebar"] .tp-brand-name span{color:#FF797D!important;}
-[data-testid="stSidebar"] .tp-brand-sub{font-size:.72rem;color:#9AABC7!important;margin-top:4px;}
-/* Inicio de sesión: composición de bienvenida + acceso, como Asistencias. */
-.tp-lg-hero{background:linear-gradient(155deg,#101828 0%,#172641 100%)!important;}
-.tp-lg-hero::before{background:radial-gradient(circle,rgba(236,50,55,.38),transparent 70%)!important;}
-.tp-lg-p{color:#D5DEED!important;}
-.tp-lg-feat div{color:#F3F6FC!important;background:rgba(255,255,255,.09)!important;}
-.tp-lg-quote p{color:#F3F6FC!important;}
-.tp-login-title{font-size:1.7rem!important;}
-[data-testid="stTextInput"] input{background:#F4F6FA!important;color:#14213B!important;}
-@media(max-width:900px){.tp-lg-hero{min-height:0!important;}}
-@media(max-width:900px){.tp-lg-hero{min-height:0;padding:24px;}.tp-lg-h{font-size:1.5rem;}.tp-lg-feat,.tp-lg-quote{display:none;}}
-</style>""", unsafe_allow_html=True)
-
-# =========================================================
-# RESPONSIVE MULTIDISPOSITIVO · DISEÑO ÚNICO
-# Solo presentación: no cambia lógica, permisos ni conexiones.
-# =========================================================
-st.markdown(r"""
-<style>
-/* Escalas fluidas: portátil, escritorio, iPad y teléfono. */
-:root{--tp-gap:clamp(10px,1.5vw,22px);--tp-mobile-pad:clamp(12px,2vw,28px)}
-html,body,[data-testid="stApp"]{max-width:100%;overflow-x:clip}
-[data-testid="stAppViewContainer"]{min-width:0}
-.block-container{width:100%;max-width:1600px;padding-left:clamp(14px,2.4vw,42px)!important;padding-right:clamp(14px,2.4vw,42px)!important}
-[data-testid="stHorizontalBlock"]{min-width:0}
-[data-testid="column"]{min-width:0}
-[data-testid="stDataFrame"],[data-testid="stDataEditor"],.js-plotly-plot,.plotly,.stPlotlyChart{max-width:100%;min-width:0}
-[data-testid="stDataFrame"],[data-testid="stDataEditor"]{overflow-x:auto;-webkit-overflow-scrolling:touch}
-[data-testid="stTabs"] [data-baseweb="tab-list"]{overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;flex-wrap:nowrap;-webkit-overflow-scrolling:touch}
-[data-testid="stTabs"] [data-baseweb="tab"]{white-space:nowrap;flex-shrink:0}
-[data-testid="stSidebar"]{max-width:min(340px,90vw)}
-[data-testid="stSidebar"] [data-testid="stSidebarContent"]{overflow-x:hidden}
-[data-testid="stSidebar"] [role="radiogroup"] label{white-space:normal;overflow-wrap:anywhere}
-.tp-lg-hero{height:100%;min-height:0!important;padding:clamp(20px,2.8vw,36px)!important}
-.tp-lg-h{font-size:clamp(1.45rem,2.5vw,2.15rem)!important}
-.tp-lg-p{overflow-wrap:break-word}
-.tp-lg-feat div{overflow-wrap:anywhere}
-.tp-login-title{font-size:clamp(1.35rem,2.2vw,1.7rem)!important}
-.stButton>button,.stDownloadButton>button,.stFormSubmitButton>button{white-space:normal;overflow-wrap:anywhere;min-height:44px}
-[data-testid="stMetricValue"]{font-size:clamp(1.15rem,2vw,2rem)!important;overflow-wrap:anywhere}
-/* Tablets: equilibrar login y evitar tarjetas desbordadas. */
-@media(min-width:641px) and (max-width:1100px){
- .block-container{padding-left:20px!important;padding-right:20px!important}
- .tp-lg-hero{padding:24px!important}
- .tp-lg-feat{gap:8px}
- .tp-lg-feat div{padding:10px}
- .tp-lg-quote{margin-top:16px;padding:14px}
- [data-testid="stHorizontalBlock"]{gap:12px}
-}
-/* Teléfonos: el acceso se apila y el formulario aparece primero en el flujo útil. */
-@media(max-width:640px){
- html,body,input,select,textarea{font-size:16px}
- .block-container{padding:12px 12px max(65px,env(safe-area-inset-bottom))!important}
- [data-testid="stHorizontalBlock"]{flex-wrap:wrap!important;gap:12px!important}
- [data-testid="stHorizontalBlock"]>[data-testid="column"]{flex:1 1 100%!important;width:100%!important;min-width:0!important}
- .tp-lg-hero{padding:18px!important;border-radius:15px!important;box-shadow:none!important}
- .tp-lg-logo{padding:6px 10px!important}
- .tp-lg-h{font-size:1.45rem!important;line-height:1.22!important;margin-bottom:8px!important}
- .tp-lg-k{margin:12px 0 8px!important;font-size:.65rem!important}
- .tp-lg-p{font-size:.83rem!important;line-height:1.5!important;margin:0!important}
- .tp-lg-feat,.tp-lg-quote{display:none!important}
- .tp-login-title{font-size:1.4rem!important}
- .tp-login-sub{margin-bottom:14px!important}
- .tp-login-lock{width:44px!important;height:44px!important;line-height:44px!important;font-size:1.3rem!important}
- [data-testid="stVerticalBlockBorderWrapper"]{max-width:100%}
- .premium-header,.market-header{padding:15px!important}
- .premium-header h1,.market-header h1{font-size:1.22rem!important}
- .info-card,.card,.kpi-card,.product-card{padding:13px!important}
- [data-testid="stMetric"]{padding:12px!important}
- [data-testid="stSidebar"]{width:min(320px,90vw)!important}
- .stButton>button,.stDownloadButton>button,.stFormSubmitButton>button{min-height:48px;width:100%}
- [data-testid="stFileUploader"]{max-width:100%}
- .js-plotly-plot{max-width:100%}
-}
-@media(max-width:390px){.block-container{padding-left:9px!important;padding-right:9px!important}.tp-lg-h{font-size:1.25rem!important}}
-@media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
-</style>
-""",unsafe_allow_html=True)
 
 # =========================================================
 # LOGIN / SETUP
@@ -2256,9 +2212,10 @@ def pantalla_login():
         footer()
         return
 
-    # Composición visual fiel al acceso de Asistencias.
-    # Autenticación, permisos y seguridad de Inventario se mantienen independientes.
-    st.markdown(r"""<style>
+    # Composición visual idéntica al acceso de Asistencia.
+    # La autenticación, permisos y seguridad de Inventario se mantienen independientes.
+    st.markdown("""
+<style>
 .stApp:has(.tp-lg-hero){background:radial-gradient(1100px 560px at 8% -10%,#FDECEC 0%,transparent 60%),radial-gradient(900px 520px at 100% 110%,#E4EBF8 0%,transparent 58%),var(--tp-bg);}
 .stApp:has(.tp-lg-hero) .block-container{padding-top:1.6rem;max-width:1180px;}
 .tp-lg-hero{position:relative;overflow:hidden;border-radius:28px;padding:36px 38px;min-height:640px;color:#fff;display:flex;flex-direction:column;justify-content:space-between;
@@ -2292,119 +2249,148 @@ def pantalla_login():
 .st-key-tpc_login_form .stButton>button{color:#111827!important;}
 .tp-lg-note{display:flex;gap:8px;align-items:center;justify-content:center;font-size:.76rem;color:var(--tp-mute);margin-top:14px;}
 @media (max-width:900px){.tp-lg-hero{min-height:0;padding:22px;border-radius:22px;}.tp-lg-k{margin-top:20px;}.tp-lg-h{font-size:1.5rem;}.tp-lg-feat,.tp-lg-spacer{display:none;}.tp-lg-quote{margin-top:16px;padding:14px 16px 14px 20px;}.tp-lg-quote p{font-size:.95rem;}}
+</style>
+""", unsafe_allow_html=True)
 
-/* Compatibilidad: Inventario utiliza su propio contenedor y mantiene autenticación. */
-.stApp:has(.tp-lg-hero) .tp-lg-hero{height:auto!important;min-height:640px!important;padding:36px 38px!important;display:flex!important;flex-direction:column!important;justify-content:space-between!important}
-.stApp:has(.tp-lg-hero) .tp-lg-feat{display:grid!important;gap:10px!important;margin-top:26px!important}
-.stApp:has(.tp-lg-hero) .tp-lg-feat div{display:flex!important;align-items:center!important;gap:12px!important;padding:12px 14px!important;border-radius:14px!important}
-.stApp:has(.tp-lg-hero) .tp-lg-feat i{flex:0 0 auto;width:32px;height:32px;border-radius:10px;background:rgba(236,50,55,.2);color:#FF8A8E;display:flex;align-items:center;justify-content:center;font-style:normal}
-.stApp:has(.tp-lg-hero) .tp-lg-quote{display:block!important;margin-top:26px!important;padding:18px 20px 18px 24px!important;border:1px solid rgba(255,255,255,.1)!important;border-left:none!important;border-radius:16px!important}
-.stApp:has(.tp-lg-hero) .tp-lg-quote::before{content:"";position:absolute;left:0;top:16px;bottom:16px;width:4px;border-radius:4px;background:#EC3237}
-.stApp:has(.tp-lg-hero) .tp-lg-quote p{color:#fff!important}
-.stApp:has(.tp-lg-hero) .tp-lg-h{font-size:2.2rem!important;line-height:1.14!important}
-.stApp:has(.tp-lg-hero) .tp-lg-p{color:#B7C2D9!important}
-.stApp:has(.tp-lg-hero) .tp-lg-logo{border-radius:16px!important;padding:10px 18px!important}
-.st-key-tp_inv_login_form{background:#fff!important;border:1px solid #E3E6EC!important;border-radius:26px!important;padding:32px 30px 26px!important;box-shadow:0 8px 24px -8px rgba(15,23,42,.14)!important}
-.st-key-tp_inv_login_form [data-testid="stTextInput"] input{min-height:50px!important;background:#F6F7FA!important;color:#0F172A!important}
-.st-key-tp_inv_login_form [data-testid="stButton"] button{min-height:52px!important;background:#fff!important;border:1px solid #D8DEE8!important;color:#0F172A!important;font-weight:700!important;border-radius:12px!important;box-shadow:0 3px 8px rgba(15,23,42,.04)!important}
-.st-key-tp_inv_login_form [data-testid="stButton"] button *{color:#0F172A!important}
-.st-key-tp_inv_login_form .tp-login-lock{display:flex!important;align-items:center;justify-content:center;margin:0 auto 12px!important;width:58px!important;height:58px!important;background:#FDECEC!important;border-radius:18px!important}
-.st-key-tp_inv_login_form .tp-login-title{font-size:1.45rem!important;margin:16px 0 4px!important}
-.st-key-tp_inv_login_form .tp-login-sub{font-size:.86rem!important;margin-bottom:18px!important}
-@media(max-width:900px){.stApp:has(.tp-lg-hero) .tp-lg-hero{min-height:0!important;padding:22px!important}.stApp:has(.tp-lg-hero) .tp-lg-h{font-size:1.5rem!important}.stApp:has(.tp-lg-hero) .tp-lg-feat{display:none!important}.stApp:has(.tp-lg-hero) .tp-lg-quote{margin-top:16px!important;padding:14px 16px 14px 20px!important}}
-@media(max-width:640px){.stApp:has(.tp-lg-hero) .block-container{padding:12px 12px 3rem!important}.st-key-tp_inv_login_form{padding:22px 18px!important}.stApp:has(.tp-lg-hero) .tp-lg-quote{display:none!important}}
-</style>""", unsafe_allow_html=True)
-
-    from datetime import datetime as _dt
-    try:
-        from zoneinfo import ZoneInfo as _ZoneInfo
-        _ahora = _dt.now(_ZoneInfo("America/Lima"))
-    except Exception:
-        _ahora = _dt.now()
-    _saludo = "Buenos días" if _ahora.hour < 12 else ("Buenas tardes" if _ahora.hour < 19 else "Buenas noches")
-    _frases = (
-        "Una venta bien atendida es un cliente para toda la vida.",
+    _ico = lambda d: f'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{d}</svg>'
+    _i1 = _ico("<rect x='3' y='7' width='18' height='14' rx='2'/><path d='M3 11h18M8 7V3h8v4'/>")
+    _i2 = _ico("<path d='M4 20V10M10 20V4M16 20v-8M22 20V7'/>")
+    _i3 = _ico("<path d='M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z'/><path d='M9 12l2 2 4-4'/>")
+    _lock = _ico("<rect x='5' y='11' width='14' height='9' rx='2'/><path d='M8 11V8a4 4 0 018 0v3'/>")
+    _FRASES = [
         "Un inventario preciso ayuda a tomar mejores decisiones.",
+        "Lo que se cuenta bien hoy, se vende mejor mañana.",
         "Comprar con información es cuidar el capital de la tienda.",
         "Un equipo organizado logra mejores resultados.",
-    )
-    _frase = _frases[_ahora.toordinal() % len(_frases)]
-    _svg1 = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="7" width="18" height="14" rx="2"/><path d="M3 11h18M8 7V3h8v4"/></svg>'
-    _svg2 = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-8M22 20V7"/></svg>'
-    _svg3 = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l8 4v6c0 5-3 8-8 10-5-2-8-5-8-10V6z"/><path d="m9 12 2 2 4-4"/></svg>'
-    _lock = '<svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="#EC3237" stroke-width="2" stroke-linecap="round"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>'
+        "Cada producto en su lugar es una venta que no se pierde.",
+        "Contar con cuidado es la mejor forma de evitar sorpresas.",
+        "Una venta bien atendida es un cliente para toda la vida.",
+        "La constancia convierte un buen conteo en un gran control.",
+        "Tú eres la cara de Premium: haz que te recuerden.",
+        "Trabajando en equipo, las metas se hacen más pequeñas.",
+    ]
+    try:
+        from zoneinfo import ZoneInfo as _ZoneInfo
+        _ahora_lg = datetime.now(_ZoneInfo("America/Lima"))
+    except Exception:
+        _ahora_lg = datetime.now()
+    _frase = _FRASES[_ahora_lg.toordinal() % len(_FRASES)]
+    _saludo_h = "Buenos días" if _ahora_lg.hour < 12 else ("Buenas tardes" if _ahora_lg.hour < 19 else "Buenas noches")
+    _hero = f"""<div class="tp-lg-hero"><div>
+<span class="tp-lg-logo">{logo_tag(40)}</span>
+<div class="tp-lg-k">{_saludo_h}, equipo Premium</div>
+<div class="tp-lg-h">Tu inventario y tus compras, <em>en un solo lugar.</em></div>
+<p class="tp-lg-p">Control de existencias, conteos y compras de Tiendas Premium, con información clara y al instante.</p>
+<div class="tp-lg-feat">
+<div><i>{_i1}</i>Inventario y conteos por producto</div>
+<div><i>{_i2}</i>Pronósticos de demanda y reposición inteligente</div>
+<div><i>{_i3}</i>Acceso protegido con cierre automático de sesión</div>
+</div></div>
+<div class="tp-lg-quote"><small>Frase del día</small><p>{_frase}</p></div></div>"""
     c_hero, c_form = st.columns([1.15, 1], gap="large")
     with c_hero:
-        st.markdown(f"""<div class="tp-lg-hero"><div>
-        <span class="tp-lg-logo">{logo_tag(42)}</span>
-        <div class="tp-lg-k">{_saludo}, equipo Premium</div>
-        <div class="tp-lg-h">Tu inventario y tus compras, <em>en un solo lugar.</em></div>
-        <p class="tp-lg-p">Control de existencias, conteos y compras de Tiendas Premium, con información clara y al instante.</p>
-        <div class="tp-lg-feat">
-          <div><i>{_svg1}</i>Inventario y conteos por producto</div>
-          <div><i>{_svg2}</i>Pronósticos de demanda y reposición inteligente</div>
-          <div><i>{_svg3}</i>Acceso protegido y control de operaciones</div>
-        </div></div>
-        <div class="tp-lg-quote"><small>Frase del día</small><p>{_frase}</p></div>
-        </div>""", unsafe_allow_html=True)
+        st.markdown("".join(x.strip() for x in _hero.splitlines()), unsafe_allow_html=True)
     with c_form:
-        st.markdown('<div class="tp-lg-spacer" style="height:64px"></div>', unsafe_allow_html=True)
-        with st.container(key="tp_inv_login_form"):
-            st.markdown(f'<div class="tp-login-lock">{_lock}</div><div class="tp-login-title">Bienvenido</div><div class="tp-login-sub">Ingresa tu usuario y contraseña para continuar</div>', unsafe_allow_html=True)
-            usuario = st.text_input("Usuario", placeholder="Ingresa tu usuario", key="tp_inv_login_user")
-            password = st.text_input("Contraseña", type="password", placeholder="Ingresa tu contraseña", key="tp_inv_login_pass")
-            st.markdown('<div style="height:10px"></div>', unsafe_allow_html=True)
+        st.markdown('<div class="tp-lg-spacer"></div>', unsafe_allow_html=True)
+        with ui_card_container("login_form"):
+            _motivo = st.session_state.pop("_sesion_expirada", "")
+            if _motivo:
+                ui_callout(f"Tu sesión se cerró automáticamente por {_motivo}. Por favor, vuelve a iniciar sesión.", "warn")
+            _saludo = st.empty()
+            usuario = st.text_input("Usuario", placeholder="Tu usuario", key="tp_inv_login_user")
+            password = st.text_input("Contraseña", type="password", placeholder="Tu contraseña", key="tp_inv_login_pass")
+            _u_key = usuario.strip().lower()
+            _fila_u = usuarios[usuarios["Usuario"].str.lower() == _u_key] if _u_key else usuarios.iloc[0:0]
+            if not _fila_u.empty and LOGIN_MOSTRAR_FOTO:
+                _nom_u = str(_fila_u.iloc[0]["NombreCompleto"]).strip() or str(_fila_u.iloc[0]["Usuario"])
+                _saludo.markdown(f'<div class="tp-lg-who">{ui_avatar(_nom_u, 96)}<div class="tp-lg-t">Hola, {_html.escape(_nom_u.split()[0])}</div><div class="tp-lg-s">Ingresa tu contraseña para continuar</div></div>', unsafe_allow_html=True)
+            else:
+                _saludo.markdown(f'<div class="tp-lg-who"><div class="tp-lg-lock">{_lock}</div><div class="tp-lg-t">Bienvenido</div><div class="tp-lg-s">Ingresa con tu usuario y tu contraseña</div></div>', unsafe_allow_html=True)
+            st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
             segundos_bloqueo = int(float(st.session_state.get("login_bloqueo_hasta", 0.0)) - time.time())
             if segundos_bloqueo > 0:
-                st.error(f"Demasiados intentos fallidos. Intenta nuevamente en {segundos_bloqueo // 60 + 1} min.")
-            if st.button("Ingresar al sistema", use_container_width=True, type="secondary", disabled=segundos_bloqueo > 0):
-                try:
-                    registro = autenticar(usuario, password)
-                    if registro:
-                        st.session_state.autenticado = True
-                        st.session_state.usuario = registro
-                        st.session_state.pagina = "Inicio"
-                        st.session_state.codigo_pendiente = ""
-                        st.session_state.producto_pendiente = None
-                        st.session_state.modo_inventario = "scanner"
-                        st.session_state.login_intentos = 0
-                        registrar_auditoria("LOGIN", "Inicio de sesión")
-                        st.rerun()
-                    else:
-                        intentos = int(st.session_state.get("login_intentos", 0)) + 1
-                        if intentos >= MAX_INTENTOS_LOGIN:
+                st.error(f"Demasiados intentos fallidos. Por seguridad, espera {segundos_bloqueo // 60 + 1} minuto(s) e inténtalo de nuevo.")
+            _clic = st.button("Ingresar al sistema", use_container_width=True, key="login_btn", disabled=segundos_bloqueo > 0)
+            if segundos_bloqueo <= 0 and (_clic or (usuario.strip() and password)):
+                _intento = (_u_key, password)
+                if st.session_state.get("login_ult_intento") == _intento and st.session_state.get("login_ult_msg"):
+                    # Mismo intento repetido (por ejemplo, al recargar): se muestra el aviso sin contarlo otra vez.
+                    st.error(st.session_state["login_ult_msg"])
+                else:
+                    try:
+                        registro = autenticar(usuario, password)
+                        if registro:
+                            st.session_state.autenticado = True
+                            st.session_state.usuario = registro
+                            st.session_state.pagina = "Inicio"
+                            st.session_state.codigo_pendiente = ""
+                            st.session_state.producto_pendiente = None
+                            st.session_state.modo_inventario = "scanner"
                             st.session_state.login_intentos = 0
-                            st.session_state.login_bloqueo_hasta = time.time() + BLOQUEO_LOGIN_SEGUNDOS
-                            registrar_auditoria("LOGIN_BLOQUEADO", f"Usuario ingresado: {str(usuario).strip()}")
-                            st.error("Demasiados intentos fallidos. Acceso bloqueado por 5 minutos.")
+                            st.session_state.login_timestamp = time.time()
+                            st.session_state.ultima_actividad = time.time()
+                            st.session_state.pop("login_ult_intento", None)
+                            st.session_state.pop("login_ult_msg", None)
+                            registrar_auditoria("LOGIN", "Inicio de sesión")
+                            st.success("Acceso concedido")
+                            st.rerun()
                         else:
-                            st.session_state.login_intentos = intentos
-                            st.error(f"Credenciales incorrectas ({intentos}/{MAX_INTENTOS_LOGIN})")
-                except Exception as exc:
-                    mostrar_error_google(exc, "inicio de sesión")
-            st.caption("Conexión protegida · Acceso exclusivo para personal autorizado")
-        with st.expander("›  Instalar en tu celular", expanded=False):
-            st.caption("Abre esta página en el navegador de tu celular. En Android selecciona 'Instalar aplicación' o 'Añadir a pantalla de inicio'; en iPhone, Compartir → Añadir a pantalla de inicio. La opción depende del navegador.")
+                            intentos = int(st.session_state.get("login_intentos", 0)) + 1
+                            if intentos >= MAX_INTENTOS_LOGIN:
+                                st.session_state.login_intentos = 0
+                                st.session_state.login_bloqueo_hasta = time.time() + BLOQUEO_LOGIN_SEGUNDOS
+                                registrar_auditoria("LOGIN_BLOQUEADO", f"Usuario ingresado: {str(usuario).strip()}")
+                                _msg = f"Demasiados intentos fallidos. Acceso bloqueado por {BLOQUEO_LOGIN_SEGUNDOS // 60} minutos."
+                                st.session_state.pop("login_ult_intento", None)   # al terminar el bloqueo se podrá reintentar
+                                st.session_state.pop("login_ult_msg", None)
+                            else:
+                                st.session_state.login_intentos = intentos
+                                _msg = f"Usuario o contraseña incorrectos. Te quedan {MAX_INTENTOS_LOGIN - intentos} intento(s) antes de un bloqueo temporal."
+                                st.session_state["login_ult_intento"] = _intento
+                                st.session_state["login_ult_msg"] = _msg
+                            st.error(_msg)
+                    except Exception as exc:
+                        mostrar_error_google(exc, "inicio de sesión")
+            st.markdown('<div class="tp-lg-note">Conexión protegida · La sesión se cierra tras 30 min de inactividad</div>', unsafe_allow_html=True)
+        ui_guia_instalar(st)
     st.stop()
+
 
 # =========================================================
 # INICIO
 # =========================================================
 
 def pantalla_inicio():
-    header("Dashboard de Inventario", f"{saludo_actual()}, {st.session_state.usuario.get('NombreCompleto', '')} 👋")
-
-    c_refresh, c_info = st.columns([1, 3])
-    with c_refresh:
-        if st.button("🔄 Actualizar datos", use_container_width=True):
-            actualizar_datos()
-            st.rerun()
-    with c_info:
-        st.markdown("<div class='mobile-note'>⚡ Los datos se mantienen en caché para reducir lecturas a Google Sheets. Actualiza manualmente cuando necesites información reciente.</div>", unsafe_allow_html=True)
+    usuario = st.session_state.usuario
+    nombre = str(usuario.get("NombreCompleto", "")).strip() or str(usuario.get("Usuario", ""))
+    primer_nombre = nombre.split()[0] if nombre.split() else ""
+    header("Dashboard de Inventario", f"{saludo_actual()}, {nombre} · Resumen de existencias, conteos y compras")
 
     inv = cargar_inventario()
     conteos = cargar_conteos()
     sesiones = cargar_sesiones()
+
+    sesion_actual = obtener_sesion_abierta()
+    estado_txt, estado_chip, pct, val_prog = "Sin inventario activo", "neutral", 0, "—"
+    if sesion_actual:
+        m = metricas_cobertura(sesion_actual["IdSesion"], sesion_actual["Sucursal"])
+        pct = int(max(0, min(100, m["cobertura"]))) if m["total"] else 0
+        estado_txt = f"Inventario en curso · {safe_text(sesion_actual['NombreSesion'])}"
+        estado_chip = "ok"
+        val_prog = f"{m['cobertura']:.1f}% · {m['pendientes']} pendientes · Exactitud {m['exactitud']:.1f}%"
+
+    hc1, hc2 = st.columns([1.5, 1])
+    with hc1:
+        st.markdown(
+            f'<div class="tp-hero"><div class="tp-hero-top">{ui_avatar(nombre, 54)}<div>'
+            f'<div class="tp-hero-hi">Hola, {safe_text(primer_nombre)}</div>{ui_chip(estado_txt, estado_chip)}</div></div>'
+            f'<div class="tp-prog-lbl"><span>Cobertura del inventario</span><span>{val_prog}</span></div>'
+            f'<div class="tp-prog"><i style="width:{pct}%"></i></div></div>',
+            unsafe_allow_html=True,
+        )
+    with hc2:
+        components.html("""<body style="margin:0;font-family:Montserrat,Arial,sans-serif"><div style="box-sizing:border-box;height:132px;background:#fff;border:1px solid #E3E6EC;border-radius:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(15,23,42,.05)"><div id="t" style="font-size:2.3rem;font-weight:700;color:#0F172A;font-variant-numeric:tabular-nums">--:--:--</div><div id="d" style="font-size:.8rem;color:#64748B;font-weight:600;text-transform:capitalize"></div></div><script>function u(){var n=new Date();document.getElementById("t").textContent=n.toLocaleTimeString("es-PE",{timeZone:"America/Lima",hour12:false});document.getElementById("d").textContent=n.toLocaleDateString("es-PE",{timeZone:"America/Lima",weekday:"long",day:"numeric",month:"long"})}u();setInterval(u,1000)</script></body>""", height=134)
+    st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
 
     stock_total = float(inv["StockSistema"].sum()) if not inv.empty else 0
     valor_inventario = float((inv["StockSistema"] * inv["CostoUnitario"]).sum()) if not inv.empty else 0
@@ -2416,37 +2402,34 @@ def pantalla_inicio():
     with k2: kpi("Stock sistema", f"{stock_total:,.0f}", "unidades")
     with k3: kpi("Valor inventario", formato_soles(valor_inventario), "a costo")
     with k4: kpi("Sesiones abiertas", str(sesiones_abiertas), "en curso")
+    st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
 
-    sesion_actual = obtener_sesion_abierta()
-    if sesion_actual:
-        m = metricas_cobertura(sesion_actual["IdSesion"], sesion_actual["Sucursal"])
-        st.progress(m["cobertura"]/100 if m["total"] else 0, text=f"Inventario activo · Cobertura {m['cobertura']:.1f}% · {m['pendientes']} pendientes · Exactitud {m['exactitud']:.1f}%")
+    c_refresh, c_info = st.columns([1, 3])
+    with c_refresh:
+        if st.button("Actualizar datos", use_container_width=True, key="inicio_actualizar"):
+            actualizar_datos()
+            st.rerun()
+    with c_info:
+        ui_callout("Los datos se mantienen en caché para reducir lecturas a Google Sheets. Actualiza manualmente cuando necesites información reciente.")
+
     alertas = alertas_operativas(inv, sesiones)
     if alertas:
-        st.markdown("<div class='section-title'>🚨 Alertas</div>", unsafe_allow_html=True)
+        ui_seccion("Alertas", "Puntos que requieren tu atención")
         for texto_alerta in alertas:
-            st.warning(texto_alerta)
+            ui_callout(texto_alerta, "warn")
 
-    st.markdown("<div class='section-title'>⚡ Acciones rápidas</div>", unsafe_allow_html=True)
+    ui_seccion("Acciones rápidas", "Atajos a las tareas más frecuentes")
     a1, a2, a3, a4 = st.columns(4)
     with a1:
-        if st.button("🧾 Nueva sesión", use_container_width=True):
-            st.session_state.pagina = "Sesión"
-            st.rerun()
+        st.button("Nueva sesión", use_container_width=True, key="qa_sesion", on_click=_ir_a, args=("Sesión",))
     with a2:
-        if st.button("📷 Iniciar inventario", use_container_width=True):
-            st.session_state.pagina = "Inventario"
-            st.rerun()
+        st.button("Iniciar inventario", use_container_width=True, key="qa_inventario", type="primary", on_click=_ir_a, args=("Inventario",))
     with a3:
-        if st.button("📊 Ver resultados", use_container_width=True):
-            st.session_state.pagina = "Resultados"
-            st.rerun()
+        st.button("Ver resultados", use_container_width=True, key="qa_resultados", on_click=_ir_a, args=("Resultados",))
     with a4:
-        if st.button("💲 Consultar precio", use_container_width=True):
-            st.session_state.pagina = "Precios"
-            st.rerun()
+        st.button("Consultar precio", use_container_width=True, key="qa_precios", on_click=_ir_a, args=("Precios",))
 
-    st.markdown("<div class='section-title'>📌 Últimos conteos</div>", unsafe_allow_html=True)
+    ui_seccion("Últimos conteos", "Los 10 registros más recientes")
     if conteos.empty:
         st.info("Todavía no existen conteos registrados.")
     else:
@@ -2464,6 +2447,7 @@ def pantalla_inicio():
                 "Dif.": st.column_config.NumberColumn(format="%.0f"),
             },
         )
+
 
 # =========================================================
 # SESIONES
@@ -2605,7 +2589,7 @@ def pantalla_scanner(sesion=None):
         if not conteos.empty:
             propios = conteos[conteos["IdSesion"].astype(str) == str(sesion["IdSesion"])].tail(5).iloc[::-1]
             if not propios.empty:
-                st.markdown("<div class='section-title'>🕒 Últimos escaneados</div>", unsafe_allow_html=True)
+                ui_seccion("Últimos escaneados")
                 for _, fila in propios.iterrows():
                     st.markdown(
                         f"<div class='card' style='padding:10px 14px;margin-bottom:8px;display:flex;"
@@ -3059,7 +3043,7 @@ def pantalla_resultados():
     with c3: kpi("Faltantes", f"{resumen['ProductosFaltantes']:,}", "productos")
     with c4: kpi("Sobrantes", f"{resumen['ProductosSobrantes']:,}", "productos")
 
-    st.markdown("<div class='section-title'>🔴 Principales faltantes</div>", unsafe_allow_html=True)
+    ui_seccion("Principales faltantes")
     if dc.empty:
         st.info("No hay conteos para esta sesión.")
     else:
@@ -3074,7 +3058,7 @@ def pantalla_resultados():
                 "Faltante": st.column_config.NumberColumn(format="S/ %.2f"),
             })
 
-    st.markdown("<div class='section-title'>🟢 Principales sobrantes</div>", unsafe_allow_html=True)
+    ui_seccion("Principales sobrantes")
     if not dc.empty:
         sobr = dc[dc["TipoDiferencia"] == "SOBRANTE"].copy().sort_values("ValorSobrante", ascending=False).head(10)
         if sobr.empty:
@@ -3088,7 +3072,7 @@ def pantalla_resultados():
             })
 
     if not dc.empty:
-        st.markdown("<div class='section-title'>📊 Valor de faltantes por categoría</div>", unsafe_allow_html=True)
+        ui_seccion("Valor de faltantes por categoría")
         por_categoria = (
             dc[dc["TipoDiferencia"] == "FALTANTE"]
             .groupby("Categoria")["ValorFaltante"]
@@ -3101,7 +3085,7 @@ def pantalla_resultados():
             st.bar_chart(por_categoria)
 
     if not dc.empty:
-        st.markdown("<div class='section-title'>🔁 Diferencias significativas a revisar</div>", unsafe_allow_html=True)
+        ui_seccion("Diferencias significativas a revisar")
         criticos = dc[dc.apply(lambda r: es_diferencia_critica(r["StockSistema"], r["StockFisico"], r["CostoUnitario"]), axis=1)].copy()
         if criticos.empty:
             st.success("No hay diferencias significativas que requieran reconteo.")
@@ -3133,7 +3117,7 @@ def pantalla_resultados():
             else:
                 st.caption("El reconteo solo está disponible mientras la sesión esté abierta.")
 
-    st.markdown("<div class='section-title'>📥 Listas de faltantes y sobrantes (para tu sistema de ventas)</div>", unsafe_allow_html=True)
+    ui_seccion("Listas de faltantes y sobrantes (para tu sistema de ventas)")
     if dc.empty:
         st.info("No hay conteos para generar listas en esta sesión.")
     else:
@@ -3177,7 +3161,7 @@ def pantalla_resultados():
                         key=f"dl_{nombre}_csv",
                     )
 
-    st.markdown("<div class='section-title'>🧮 Ajustes sugeridos de stock</div>", unsafe_allow_html=True)
+    ui_seccion("Ajustes sugeridos de stock")
     if ajustes.empty:
         st.info("No hay diferencias que ajustar en esta sesión.")
     else:
@@ -3194,7 +3178,7 @@ def pantalla_resultados():
             use_container_width=True,
         )
 
-    st.markdown("<div class='section-title'>📋 Detalle completo</div>", unsafe_allow_html=True)
+    ui_seccion("Detalle completo")
     if not dc_hist.empty:
         st.caption("Los resultados usan el último conteo de cada producto; este detalle conserva todo el historial, incluidos los reconteos.")
         detalle = dc_hist.copy()
@@ -3416,12 +3400,12 @@ def _tab_tendencia():
     with k2: kpi("Variación", f"{variacion:+.1f} pp" if variacion is not None else "—", "frente a la sesión anterior")
     with k3: kpi("Último desfase neto", formato_soles(ultima["DesfaseNeto"]), str(ultima["NombreSesion"]))
 
-    st.markdown("<div class='section-title'>📈 Exactitud por sesión</div>", unsafe_allow_html=True)
+    ui_seccion("Exactitud por sesión")
     graf = t.set_index("Etiqueta")[["ExactitudInventario"]].rename(columns={"ExactitudInventario": "Exactitud %"})
     graf["Meta"] = META_EXACTITUD
     st.line_chart(graf)
 
-    st.markdown("<div class='section-title'>💸 Desfase neto por sesión</div>", unsafe_allow_html=True)
+    ui_seccion("Desfase neto por sesión")
     st.bar_chart(t.set_index("Etiqueta")["DesfaseNeto"])
 
     vista = t[["Fecha", "NombreSesion", "Sucursal", "ProductosContados", "ExactitudInventario", "ValorFaltantes", "ValorSobrantes", "DesfaseNeto"]]
@@ -3754,54 +3738,6 @@ def pantalla_admin():
             )
 
 # =========================================================
-# IDENTIDAD VISUAL PREMIUM — TEMA CLARO UNIFICADO
-# Referencia: dashboard de asistencia de Tiendas Premium.
-# Solo presentación: no modifica lógica ni Google Sheets.
-# =========================================================
-st.markdown("""
-<style>
-:root {color-scheme:light;--tp-ink:#152238;--tp-muted:#7889A3;--tp-red:#EC3237;--tp-green:#00A959;--tp-line:#E1E6EE;--tp-page:#F3F5F8;}
-html,body,.stApp,[data-testid="stAppViewContainer"] {background:#F3F5F8!important;color:#152238!important;}
-[data-testid="stMain"], [data-testid="stMainBlockContainer"] {background:transparent!important;}
-[data-testid="stSidebar"],section[data-testid="stSidebar"]>div {background:#FFFFFF!important;border-right:1px solid #E1E6EE!important;}
-[data-testid="stSidebar"] * {color:#26374F!important;}
-[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p {color:#26374F!important;}
-[data-testid="stSidebar"] [role="radiogroup"] label {border-radius:13px!important;border:0!important;padding:11px 13px!important;transition:background .15s ease;}
-[data-testid="stSidebar"] [role="radiogroup"] label:hover {background:#F3F5F8!important;}
-[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {background:#FDE9EA!important;border-left:4px solid #EC3237!important;}
-[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) * {color:#CC252C!important;font-weight:700!important;}
-[data-testid="stSidebar"] [data-testid="stCaptionContainer"] * {color:#7889A3!important;}
-.market-header,.premium-header {background:#FFFFFF!important;border:1px solid #E1E6EE!important;border-left:1px solid #E1E6EE!important;border-radius:18px!important;padding:28px 30px!important;box-shadow:0 5px 16px rgba(30,50,80,.035)!important;position:relative;overflow:hidden;}
-.market-header:before,.premium-header:before {content:"";position:absolute;top:0;left:30px;width:42px;height:4px;border-radius:0 0 5px 5px;background:#EC3237;}
-.market-header h1,.premium-header h1 {font-size:1.55rem!important;font-weight:700!important;color:#152238!important;}
-.market-header p,.premium-header p {color:#7889A3!important;font-size:.9rem!important;}
-.card,.info-card,.kpi-card,.product-card,.stock-box,.price-hero,.price-info-item,.cal-card,div[data-testid="stForm"],div[data-testid="stExpander"],[data-testid="stMetric"] {background:#FFFFFF!important;border:1px solid #E1E6EE!important;border-radius:16px!important;box-shadow:0 2px 5px rgba(30,50,80,.035)!important;}
-.kpi-card,[data-testid="stMetric"] {border-left:4px solid #00A959!important;}
-.info-label,.kpi-label,.stock-label,.price-label {color:#7889A3!important;}
-.info-value,.kpi-value,.stock-number,.price-value,[data-testid="stMetricValue"] {color:#152238!important;}
-.stApp h1,.stApp h2,.stApp h3,.stApp h4,.stApp h5,.stApp h6 {color:#152238!important;}
-.stApp p,.stApp label,.stApp li {color:#34435B;}
-.stButton>button,div[data-testid="stFormSubmitButton"] button,div[data-testid="stDownloadButton"] button {background:#FFFFFF!important;color:#26374F!important;border:1px solid #DDE3EC!important;border-radius:10px!important;box-shadow:none!important;font-weight:600!important;}
-.stButton>button:hover,div[data-testid="stFormSubmitButton"] button:hover,div[data-testid="stDownloadButton"] button:hover {background:#FDE9EA!important;color:#C7262D!important;border-color:#F3B9BC!important;}
-.stButton>button[kind="primary"],div[data-testid="stFormSubmitButton"] button[kind="primary"] {background:#EC3237!important;color:#FFFFFF!important;border-color:#EC3237!important;}
-.stButton>button[kind="primary"] *,div[data-testid="stFormSubmitButton"] button[kind="primary"] * {color:#FFFFFF!important;}
-.stButton>button[kind="primary"]:hover,div[data-testid="stFormSubmitButton"] button[kind="primary"]:hover {background:#D92A30!important;border-color:#D92A30!important;}
-[data-testid="stSidebar"] .stButton>button {background:#FFFFFF!important;color:#26374F!important;border:1px solid #DDE3EC!important;}
-[data-testid="stSidebar"] .stButton>button:hover {background:#FDE9EA!important;color:#C7262D!important;}
-[data-testid="stSidebar"] .btn-logout>button {background:#FFFFFF!important;color:#C7262D!important;border:1px solid #F3B9BC!important;}
-[data-testid="stTabs"] button[aria-selected="true"] {color:#EC3237!important;border-bottom-color:#EC3237!important;}
-[data-testid="stDataFrame"],[data-testid="stDataEditor"],div[data-baseweb="select"]>div,div[data-baseweb="input"]>div,textarea {background:#FFFFFF!important;border-color:#E1E6EE!important;border-radius:10px!important;color:#26374F!important;}
-[data-testid="stAlert"] {border-radius:12px!important;}
-[data-testid="stProgress"] [role="progressbar"]>div {background:#00A959!important;}
-[data-testid="stSidebar"] [data-testid="stSidebarCollapseButton"] * {color:#26374F!important;}
-.app-footer {border-top:1px solid #E1E6EE!important;color:#7889A3!important;}
-.app-footer strong {color:#26374F!important;}
-@media(max-width:768px){.market-header,.premium-header{padding:20px 16px!important;border-radius:13px!important}.market-header h1,.premium-header h1{font-size:1.2rem!important}.card,.info-card,.kpi-card,.product-card{border-radius:12px!important}}
-</style>
-""",unsafe_allow_html=True)
-
-
-# =========================================================
 # ETAPA 5 — INTELIGENCIA DE COMPRAS / VENTAS
 # Hoja VentasProductos: conserva exactamente las 25 columnas del reporte.
 # =========================================================
@@ -4122,9 +4058,9 @@ def _p_plot(fig, height=350):
     # Etiquetas legibles sin necesidad de hover.
     fig.update_layout(uniformtext_minsize=10, uniformtext_mode='show')
     fig.update_layout(template='plotly_white', height=height, margin=dict(l=12,r=12,t=30,b=15),
-        paper_bgcolor='white', plot_bgcolor='white', font=dict(color='#34435A',size=12),
+        paper_bgcolor='white', plot_bgcolor='white', font=dict(color='#334155',size=12,family='Montserrat, sans-serif'),
         hovermode='x unified', legend=dict(orientation='h',y=-0.22),
-        xaxis=dict(showgrid=False), yaxis=dict(gridcolor='#EEF1F5'))
+        xaxis=dict(showgrid=False), yaxis=dict(gridcolor='#E3E6EC'))
     fig.update_yaxes(automargin=True)
     st.plotly_chart(fig, use_container_width=True, config={'displaylogo':False,'scrollZoom':False,'toImageButtonOptions':{'format':'png','scale':2}})
 
@@ -4407,21 +4343,6 @@ def pantalla_stock_intelligence():
     """Una sola pantalla de decisión: qué comprar, cuánto y por qué."""
     from zoneinfo import ZoneInfo
     header('Plan de Compras | Tiendas Premium', 'Decisiones de abastecimiento basadas en stock disponible y comportamiento de ventas')
-    st.markdown('''<style>
-    .psi-executive {background:#fff;border:1px solid #e0e7ef;border-left:4px solid #EC3237;border-radius:12px;padding:19px 22px;margin:10px 0 18px;box-shadow:0 4px 18px rgba(23,40,67,.035)}
-    .psi-executive h3 {font-size:1.04rem;color:#172a44;margin:0 0 7px;font-weight:750}
-    .psi-executive p {font-size:.94rem;color:#465872;line-height:1.6;margin:0}
-    .psi-eyebrow {color:#75869e;font-size:.72rem;font-weight:800;letter-spacing:.085em;text-transform:uppercase;margin:12px 0 8px}
-    .psi-section {display:flex;align-items:center;gap:10px;margin:20px 0 12px;color:#172a44;font-size:1.07rem;font-weight:750}
-    .psi-section .psi-index {display:inline-grid;place-items:center;width:27px;height:27px;border-radius:7px;background:#fff0f0;color:#d72e35;font-size:.83rem}
-    .psi-smallnote {color:#78889c;font-size:.83rem;margin:0 0 10px}
-    [data-testid="stMetric"] {border-top:3px solid #00A959!important;border-radius:12px!important;padding:16px 19px!important;box-shadow:0 3px 12px rgba(22,42,68,.035)}
-    [data-testid="stMetricLabel"] {color:#6b7c93!important}
-    [data-testid="stMetricValue"] {font-size:1.8rem!important;font-weight:750!important;color:#1a304c!important}
-    [data-testid="stDataFrame"] {border:1px solid #e1e7ee!important;border-radius:10px!important}
-    div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stAlert"]) {border-radius:10px}
-    @media(max-width:700px) { .psi-executive {padding:15px} [data-testid="stMetricValue"] {font-size:1.35rem!important} }
-    </style>''',unsafe_allow_html=True)
     if str(st.session_state.usuario.get('Rol','')).upper()!='ADMIN':
         st.error('Acceso exclusivo para administración.'); return
     try:
@@ -4630,44 +4551,99 @@ def pantalla_seguridad_y_respaldo():
 
 
 # =========================================================
-# SIDEBAR
+# SIDEBAR (misma estructura que Asistencia)
+# Marca · tarjeta de usuario · aviso · búsqueda · menú · accesos · cerrar sesión
 # =========================================================
+
+_CLAVES_SESION = [
+    "autenticado", "usuario", "pagina", "nav_menu", "reconteo_activo", "sesion_actual", "codigo_pendiente",
+    "producto_pendiente", "modo_inventario", "ultimo_codigo_scan", "zona_activa", "precio_producto", "precio_modo",
+    "precio_ultimo_codigo_scan", "login_timestamp", "ultima_actividad", "gs_q", "_pg_prev", "_pg_n", "_menu_opciones",
+]
+
+
+def _cerrar_sesion(motivo=""):
+    """Limpia la sesión del usuario. Si hay motivo (cierre automático), el login lo muestra."""
+    for key in _CLAVES_SESION:
+        st.session_state.pop(key, None)
+    if motivo:
+        st.session_state["_sesion_expirada"] = motivo
+
 
 def _cambio_menu():
     """Callback del menú lateral: se ejecuta ANTES del rerun, por lo que la
     página queda actualizada con un solo clic."""
     st.session_state.pagina = st.session_state.get("nav_menu", "Inicio")
+    st.session_state["gs_q"] = ""
+
+
+def render_busqueda_inv(q, opciones):
+    """Búsqueda global (solo lectura): secciones del menú y productos del inventario."""
+    header("Resultados de búsqueda", f"Coincidencias para «{q}»")
+    qn = _norm_txt(q)
+    secs = [o for o in opciones if qn in _norm_txt(o)]
+    if secs:
+        st.markdown(f'<div class="tp-note-t" style="margin:6px 0 10px">Secciones · {len(secs)}</div>', unsafe_allow_html=True)
+        cols = st.columns(min(len(secs), 4))
+        for i, s in enumerate(secs):
+            with cols[i % len(cols)]:
+                st.button(s, key=f"gs_sec_{i}", use_container_width=True, on_click=_ir_a, args=(s,))
+    try:
+        prods = buscar_productos(q)
+    except Exception:
+        prods = pd.DataFrame()
+    n = len(prods)
+    st.markdown(f'<div class="tp-note-t" style="margin:22px 0 10px">Productos · {n}{"+" if n >= 100 else ""}</div>', unsafe_allow_html=True)
+    if prods.empty:
+        ui_callout("No encontré productos con ese nombre, código, categoría o marca. Prueba con otra palabra.")
+        return
+    filas = ""
+    for _, r in prods.head(25).iterrows():
+        stock = limpiar_numero(r.get("StockSistema", 0))
+        detalle = " · ".join(
+            x for x in [
+                f"Cód. {safe_text(r.get('CodigoProducto', ''))}" if str(r.get("CodigoProducto", "")).strip() else "",
+                safe_text(r.get("Categoria", "")) if str(r.get("Categoria", "")).strip() else "",
+                safe_text(r.get("Marca", "")) if str(r.get("Marca", "")).strip() else "",
+            ] if x
+        ) or "Sin detalle"
+        chips = ui_chip(f"Stock {stock:,.0f}", "ok" if stock > 0 else "bad") + ui_chip(formato_soles(limpiar_numero(r.get("PrecioVenta", 0))), "neutral")
+        filas += f'<div class="tp-row"><div class="tp-row-main"><b>{safe_text(r.get("Producto", ""))}</b><span>{detalle}</span></div><div class="tp-chips">{chips}</div></div>'
+    st.markdown(filas, unsafe_allow_html=True)
+    if n > 25:
+        st.caption(f"Mostrando 25 de {n}{'+' if n >= 100 else ''} coincidencias. Afina la búsqueda para ver menos resultados.")
 
 
 def sidebar():
     usuario = st.session_state.usuario
     rol = str(usuario.get("Rol", "CONTADOR")).upper()
-    nombre_usuario = safe_text(usuario.get("NombreCompleto", ""))
-    login_usuario = safe_text(usuario.get("Usuario", ""))
+    nombre_usuario = str(usuario.get("NombreCompleto", "")).strip()
+    login_usuario = str(usuario.get("Usuario", "")).strip()
 
-    # --- SIDEBAR (mismo diseño y estructura que App 43) ---
-    st.sidebar.markdown(
-        f'<div style="text-align:center; padding: 8px 0 14px 0;">{logo_tag(58)}</div>',
-        unsafe_allow_html=True,
-    )
-    st.sidebar.markdown("""
-        <div class="tp-brand" style="padding:8px 8px 18px;">
-            <div class="tp-brand-name">TIENDAS <span>PREMIUM</span></div>
-            <div class="tp-brand-sub">Sistema de Inventario</div>
-        </div>
-    """, unsafe_allow_html=True)
+    st.sidebar.markdown(f'<div style="text-align:center; padding: 8px 0 14px 0;">{logo_tag(58)}</div>', unsafe_allow_html=True)
+    st.sidebar.markdown('<div class="tp-brand"><div class="tp-brand-name">Tiendas <span>Premium</span></div><div class="tp-brand-sub">Sistema de inventario</div></div>', unsafe_allow_html=True)
     st.sidebar.markdown(f"""
         <div class="tp-user">
-            <div class="tp-avatar">{html.escape((nombre_usuario[:1] or 'P').upper())}</div>
-            <div><b>{html.escape(nombre_usuario)}</b><span>{html.escape(rol)} · {html.escape(login_usuario)}</span></div>
+            {ui_avatar(nombre_usuario or login_usuario)}
+            <div><b>{safe_text(nombre_usuario or login_usuario)}</b><span>{safe_text(rol.capitalize())} · {safe_text(login_usuario)}</span></div>
         </div>
     """, unsafe_allow_html=True)
+
+    # Aviso de sesiones de conteo abiertas (mismo recurso visual que los avisos de Asistencia)
+    try:
+        _ses = cargar_sesiones()
+        _abiertas = int((_ses["Estado"].astype(str).str.upper() == "ABIERTA").sum()) if not _ses.empty else 0
+    except Exception:
+        _abiertas = 0
+    if _abiertas:
+        st.sidebar.markdown(f'<div class="tp-notif"><span>Inventarios en curso</span><span>{_abiertas}</span></div>', unsafe_allow_html=True)
 
     opciones = ["Inicio", "Precios", "Sesión", "Zonas", "Inventario", "Resultados", "Análisis"]
     if rol == "ADMIN":
-        opciones += ["Compras Inteligentes", "Seguridad y respaldos"]
-    if rol == "ADMIN":
-        opciones.append("Administración")
+        opciones += ["Compras Inteligentes", "Seguridad y respaldos", "Administración"]
+    st.session_state["_menu_opciones"] = opciones
+
+    st.sidebar.text_input("Buscar", key="gs_q", placeholder="Buscar productos, secciones…", label_visibility="collapsed")
 
     # Sincroniza el menú con la página actual (por ejemplo, cuando un botón
     # de la pantalla cambia de página). Se hace ANTES de crear el radio.
@@ -4678,13 +4654,20 @@ def sidebar():
     if st.session_state.get("nav_menu") != actual:
         st.session_state["nav_menu"] = actual
 
-    seleccion = st.sidebar.radio(
-        "Navegación",
-        opciones,
-        key="nav_menu",
-        on_change=_cambio_menu,
-    )
+    seleccion = st.sidebar.radio("Navegación", opciones, key="nav_menu", on_change=_cambio_menu)
     st.session_state.pagina = seleccion
+
+    # Barra inferior de navegación (solo se ve en celular; en PC la oculta el CSS)
+    _nav_items = [("Inicio", "Inicio", ":material/dashboard:"), ("Precios", "Precios", ":material/sell:"),
+                  ("Inventario", "Contar", ":material/qr_code_scanner:"), ("Resultados", "Resultados", ":material/bar_chart:")]
+    try:
+        with st.container(key="tp_bottomnav"):
+            for _col, (_dest, _lbl, _ico) in zip(st.columns(len(_nav_items)), _nav_items):
+                with _col:
+                    st.button(_lbl, key=f"bn_{_dest}", icon=_ico, use_container_width=True,
+                              type="primary" if seleccion == _dest else "secondary", on_click=_ir_a, args=(_dest,))
+    except Exception:
+        pass  # versiones antiguas de Streamlit: se usa solo el menú lateral
 
     st.sidebar.markdown('<div style="height:14px"></div>', unsafe_allow_html=True)
     if st.sidebar.button("Actualizar Datos", use_container_width=True, key="sb_actualizar_datos"):
@@ -4692,142 +4675,23 @@ def sidebar():
         st.rerun()
 
     st.sidebar.markdown('<div class="btn-logout">', unsafe_allow_html=True)
+    st.sidebar.markdown(
+        f'<a class="tp-negosy" href="{NEGOSY_URL}" target="_blank" rel="noopener noreferrer"><span><span class="tp-negosy-t">Negosy</span><span class="tp-negosy-s">Sistema de ventas</span></span>'
+        "<svg width='18' height='18' viewBox='0 0 24 24' fill='none' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M7 17L17 7M9 7h8v8'/></svg></a>",
+        unsafe_allow_html=True)
+    if ASISTENCIA_URL:
+        st.sidebar.markdown(
+            f'<a class="tp-negosy" href="{ASISTENCIA_URL}" target="_blank" rel="noopener noreferrer"><span><span class="tp-negosy-t">Asistencia</span><span class="tp-negosy-s">Control de personal</span></span>'
+            "<svg width='18' height='18' viewBox='0 0 24 24' fill='none' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M7 17L17 7M9 7h8v8'/></svg></a>",
+            unsafe_allow_html=True)
+    ui_guia_instalar(st.sidebar)
     if st.sidebar.button("Cerrar Sesión", use_container_width=True, key="sb_cerrar_sesion"):
-        for key in ["autenticado", "usuario", "pagina", "nav_menu", "reconteo_activo", "sesion_actual", "codigo_pendiente", "producto_pendiente", "modo_inventario", "ultimo_codigo_scan", "zona_activa", "precio_producto", "precio_modo", "precio_ultimo_codigo_scan"]:
-            st.session_state.pop(key, None)
+        registrar_auditoria("LOGOUT", "Cierre de sesión")
+        _cerrar_sesion()
         st.rerun()
     st.sidebar.markdown('</div>', unsafe_allow_html=True)
 
-    
 
-# =========================================================
-# AJUSTE VISUAL: SIDEBAR Y ESPACIADO COMO ASISTENCIAS
-# CSS final para prevalecer sobre reglas anteriores.
-# =========================================================
-st.markdown(r"""<style>
-/* El dashboard inicia arriba, sin franja vacía. El login mantiene su centrado. */
-.stApp:not(:has(.tp-lg-hero)) [data-testid="stMainBlockContainer"],
-.stApp:not(:has(.tp-lg-hero)) .main .block-container,
-.stApp:not(:has(.tp-lg-hero)) .block-container {
-  padding-top: 1.05rem !important;
-  margin-top: 0 !important;
-}
-.stApp:not(:has(.tp-lg-hero)) [data-testid="stMain"] > div {margin-top:0!important;}
-/* Mismo menú de Asistencias: texto sin controles de radio visibles. */
-[data-testid="stSidebar"] {background:#FFFFFF!important;border-right:1px solid #E3E6EC!important;}
-[data-testid="stSidebar"] [data-testid="stSidebarContent"] {padding-top:1rem!important;}
-[data-testid="stSidebar"] [role="radiogroup"] {gap:2px!important;}
-[data-testid="stSidebar"] [role="radiogroup"] label {
-  position:relative!important;min-height:42px!important;
-  padding:10px 12px 10px 15px!important;border:0!important;
-  border-radius:11px!important;display:flex!important;align-items:center!important;
-  background:transparent!important;
-}
-[data-testid="stSidebar"] [role="radiogroup"] label > div:first-child,
-[data-testid="stSidebar"] [role="radiogroup"] label [data-baseweb="radio"],
-[data-testid="stSidebar"] [role="radiogroup"] label [data-testid="stRadioButton"] {
-  display:none!important;width:0!important;min-width:0!important;
-  margin:0!important;padding:0!important;
-}
-[data-testid="stSidebar"] [role="radiogroup"] label p {font-size:.88rem!important;font-weight:500!important;color:#64748B!important;line-height:1.3!important;}
-[data-testid="stSidebar"] [role="radiogroup"] label:hover {background:#F3F5F8!important;}
-[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {
-  background:#FDE9EA!important;border:0!important;
-}
-[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked)::before {
-  content:"";position:absolute;left:0;top:8px;bottom:8px;width:3px;
-  border-radius:3px;background:#EC3237;
-}
-[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p {color:#C9262B!important;font-weight:700!important;}
-/* Identidad y usuario con el mismo tratamiento compacto de Asistencias. */
-[data-testid="stSidebar"] .tp-brand {padding:2px 2px 16px!important;text-align:left!important;}
-[data-testid="stSidebar"] .tp-brand-name {font-weight:800!important;font-size:1rem!important;letter-spacing:-.01em!important;}
-[data-testid="stSidebar"] .tp-brand-sub {font-size:.72rem!important;color:#64748B!important;}
-[data-testid="stSidebar"] .tp-user {background:#F6F7FA!important;border:1px solid #E3E6EC!important;border-radius:14px!important;padding:12px!important;margin-bottom:18px!important;}
-[data-testid="stSidebar"] .tp-user b {color:#0F172A!important;font-size:.84rem!important;}
-[data-testid="stSidebar"] .tp-user span {color:#64748B!important;font-size:.7rem!important;}
-[data-testid="stSidebar"] .tp-avatar {background:#EC3237!important;color:#FFFFFF!important;}
-/* El pie técnico no distrae en la navegación principal. */
-[data-testid="stSidebar"] [data-testid="stCaptionContainer"] {font-size:.69rem!important;opacity:.75;}
-@media(max-width:768px){
- .stApp:not(:has(.tp-lg-hero)) [data-testid="stMainBlockContainer"],
- .stApp:not(:has(.tp-lg-hero)) .main .block-container,
- .stApp:not(:has(.tp-lg-hero)) .block-container {padding-top:.7rem!important;padding-left:12px!important;padding-right:12px!important;}
- [data-testid="stSidebar"] [role="radiogroup"] label {min-height:44px!important;}
-}
-</style>""", unsafe_allow_html=True)
-
-# =========================================================
-# PARIDAD VISUAL CON ASISTENCIAS — AJUSTE DEFINITIVO
-# Corrige padding nativo de Streamlit y el menú de radio.
-# =========================================================
-st.markdown(r"""<style>
-/* El margen superior pertenece al contenedor de Streamlit, no a la tarjeta. */
-@media(min-width:769px){
-  body .stApp:not(:has(.tp-lg-hero)) [data-testid="stMainBlockContainer"],
-  body .stApp:not(:has(.tp-lg-hero)) section[data-testid="stMain"] .block-container,
-  body .stApp:not(:has(.tp-lg-hero)) .main .block-container {
-    padding-top:0.5rem!important;margin-top:0!important;
-  }
-}
-/* Quitar huecos introducidos por los elementos de estilo, sin ocultar contenido. */
-.stApp:not(:has(.tp-lg-hero)) [data-testid="stMainBlockContainer"] > [data-testid="stVerticalBlock"] {
-  gap:0.85rem!important;
-}
-.stApp:not(:has(.tp-lg-hero)) [data-testid="stMainBlockContainer"] > [data-testid="stVerticalBlock"] > div:has(> [data-testid="stElementContainer"] > [data-testid="stMarkdown"] > style) {min-height:0!important;}
-/* Sidebar igual a Asistencias: fondo blanco, menú limpio y selección coral. */
-section[data-testid="stSidebar"]{background:#fff!important;border-right:1px solid #E3E6EC!important;}
-section[data-testid="stSidebar"] [data-testid="stSidebarContent"]{padding-top:.55rem!important;}
-section[data-testid="stSidebar"] [role="radiogroup"]{gap:1px!important;}
-section[data-testid="stSidebar"] [role="radiogroup"] label{
-  position:relative!important;border:0!important;border-radius:12px!important;
-  min-height:40px!important;padding:8px 12px!important;background:transparent!important;
-  display:flex!important;align-items:center!important;
-}
-/* Ocultar de verdad los círculos de Streamlit/BaseWeb, no los textos. */
-section[data-testid="stSidebar"] [role="radiogroup"] label [data-baseweb="radio"],
-section[data-testid="stSidebar"] [role="radiogroup"] label [data-testid="stRadioButton"],
-section[data-testid="stSidebar"] [role="radiogroup"] label > div:first-child:not(:has([data-testid="stMarkdownContainer"])),
-section[data-testid="stSidebar"] [role="radiogroup"] label svg{
-  display:none!important;visibility:hidden!important;width:0!important;min-width:0!important;
-  height:0!important;margin:0!important;padding:0!important;
-}
-section[data-testid="stSidebar"] [role="radiogroup"] label p{
-  color:#64748B!important;font-size:.88rem!important;font-weight:550!important;
-}
-section[data-testid="stSidebar"] [role="radiogroup"] label:hover{background:#F3F4F7!important;}
-section[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked){background:#FDECEC!important;}
-section[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked)::before{
-  content:"";position:absolute;left:0;top:6px;bottom:6px;width:4px;
-  background:#EC3237;border-radius:5px;
-}
-section[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p{color:#C9262B!important;font-weight:750!important;}
-section[data-testid="stSidebar"] .tp-brand{padding:2px 8px 12px!important;}
-section[data-testid="stSidebar"] .tp-user{margin-bottom:12px!important;}
-/* Botones como Asistencias: blanco, borde gris y texto oscuro; acción primaria roja. */
-.stApp .stButton>button:not([kind="primary"]),
-.stApp [data-testid="stDownloadButton"] button{
-  background:#FFFFFF!important;color:#152238!important;border:1px solid #DDE3EC!important;
-  border-radius:11px!important;box-shadow:0 2px 4px rgba(15,23,42,.035)!important;font-weight:650!important;
-}
-.stApp .stButton>button:not([kind="primary"]):hover,
-.stApp [data-testid="stDownloadButton"] button:hover{
-  background:#FDECEC!important;color:#C9262B!important;border-color:#F3B9BC!important;
-}
-.stApp .stButton>button[kind="primary"],.stApp [data-testid="stFormSubmitButton"] button[kind="primary"]{
-  background:#EC3237!important;color:white!important;border:1px solid #EC3237!important;
-}
-.stApp .stButton>button[kind="primary"] *{color:white!important;}
-/* No aplicar reglas de botones del panel principal a login. */
-.stApp:has(.tp-lg-hero) .st-key-tp_inv_login_form button{background:white!important;color:#152238!important;border:1px solid #DDE3EC!important;}
-@media(max-width:768px){
-  body .stApp:not(:has(.tp-lg-hero)) [data-testid="stMainBlockContainer"],
-  body .stApp:not(:has(.tp-lg-hero)) .main .block-container{
-    padding:3.25rem 12px 4rem!important;margin-top:0!important;
-  }
-  section[data-testid="stSidebar"] [role="radiogroup"] label{min-height:44px!important;}
-}
-</style>""", unsafe_allow_html=True)
 
 # =========================================================
 # ESTADO / ARRANQUE
@@ -4847,6 +4711,7 @@ for key, default in {
     "reconteo_activo": False,
     "login_intentos": 0,
     "login_bloqueo_hasta": 0.0,
+    "gs_q": "",
 }.items():
     if key not in st.session_state:
         st.session_state[key] = default
@@ -4870,6 +4735,8 @@ except Exception as exc:
     footer()
     st.stop()
 
+ui_pwa_inyectar()
+
 if not st.session_state.autenticado:
     try:
         pantalla_login()
@@ -4877,7 +4744,39 @@ if not st.session_state.autenticado:
         mostrar_error_google(exc, "carga de login")
     st.stop()
 
+# --- CONTROL DE EXPIRACIÓN DE SESIÓN (igual que Asistencia) ---
+# Máximo 10 horas desde el login y cierre automático tras 30 minutos de inactividad.
+_ahora_ses = time.time()
+if "login_timestamp" not in st.session_state:
+    st.session_state.login_timestamp = _ahora_ses
+if "ultima_actividad" not in st.session_state:
+    st.session_state.ultima_actividad = _ahora_ses
+_desde_login = _ahora_ses - st.session_state.login_timestamp
+_inactivo = _ahora_ses - st.session_state.ultima_actividad
+if _desde_login > SESION_MAX_SEGUNDOS or _inactivo > INACTIVIDAD_MAX_SEGUNDOS:
+    _motivo_cierre = "duración máxima (10 horas)" if _desde_login > SESION_MAX_SEGUNDOS else "inactividad (30 minutos)"
+    registrar_auditoria("LOGOUT_AUTOMATICO", f"Sesión cerrada por {_motivo_cierre}")
+    _cerrar_sesion(_motivo_cierre)
+    st.rerun()
+st.session_state.ultima_actividad = _ahora_ses
+
 sidebar()
+
+# Transición suave entre secciones y búsqueda global (misma mecánica que Asistencia)
+_gq = str(st.session_state.get("gs_q", "")).strip()
+_pid = str(st.session_state.get("pagina", "Inicio")) + ("|buscar" if len(_gq) >= 2 else "")
+if st.session_state.get("_pg_prev") != _pid:
+    st.session_state["_pg_prev"] = _pid
+    st.session_state["_pg_n"] = st.session_state.get("_pg_n", 0) + 1
+st.markdown(f'<div class="tp-pg-{"a" if st.session_state["_pg_n"] % 2 == 0 else "b"}"></div>', unsafe_allow_html=True)
+
+if len(_gq) >= 2:
+    try:
+        render_busqueda_inv(_gq, st.session_state.get("_menu_opciones", []))
+    except Exception as exc:
+        mostrar_error_google(exc, "búsqueda")
+    footer()
+    st.stop()
 
 try:
     pagina = st.session_state.get("pagina", "Inicio")
@@ -4908,73 +4807,3 @@ try:
 except Exception as exc:
     mostrar_error_google(exc, "carga de la pantalla")
     footer()
-
-
-# =========================================================
-# CORRECCIÓN DE LAYOUT RESPONSIVO: ancho dinámico y cero hueco superior
-# st.html inyecta CSS sin crear filas vacías en el flujo de Streamlit.
-# =========================================================
-st.html(r"""<style>
-/* Streamlit debe ocupar todo el ancho restante al cerrar la barra lateral. */
-[data-testid="stAppViewContainer"],
-[data-testid="stAppViewContainer"] > section[data-testid="stMain"],
-section[data-testid="stMain"],
-section[data-testid="stMain"] > div,
-section[data-testid="stMain"] > div[data-testid="stMainBlockContainer"] {
-  min-width:0!important;
-  box-sizing:border-box!important;
-}
-section[data-testid="stMain"] {
-  width:100%!important;
-  max-width:100%!important;
-  flex:1 1 auto!important;
-  margin-left:0!important;
-  margin-right:0!important;
-  align-self:stretch!important;
-}
-/* Ancho limitado y CENTRADO dentro del área realmente disponible, no de la ventana. */
-.stApp:not(:has(.tp-lg-hero)) section[data-testid="stMain"] [data-testid="stMainBlockContainer"],
-.stApp:not(:has(.tp-lg-hero)) section[data-testid="stMain"] .block-container {
-  width:100%!important;
-  max-width:1440px!important;
-  margin-left:auto!important;
-  margin-right:auto!important;
-  padding-top:0!important;
-  padding-bottom:2rem!important;
-  padding-left:clamp(12px,2.2vw,32px)!important;
-  padding-right:clamp(12px,2.2vw,32px)!important;
-  min-height:0!important;
-  box-sizing:border-box!important;
-}
-/* No reservar espacio para cabecera de Streamlit en la vista autenticada. */
-.stApp:not(:has(.tp-lg-hero)) section[data-testid="stMain"] {
-  padding-top:0!important;
-  justify-content:flex-start!important;
-  align-items:stretch!important;
-}
-.stApp:not(:has(.tp-lg-hero)) section[data-testid="stMain"] > div:first-child {
-  padding-top:0!important;
-  margin-top:0!important;
-}
-.stApp:not(:has(.tp-lg-hero)) [data-testid="stMainBlockContainer"] > [data-testid="stVerticalBlock"] {
-  padding-top:0!important;
-  margin-top:0!important;
-}
-/* La cabecera permanece accesible, pero no debe empujar el dashboard. */
-header[data-testid="stHeader"] {height:2.5rem!important;min-height:0!important;}
-/* Evitar que el botón flotante del menú quede sobre las tarjetas. */
-@media(min-width:769px){
-  .stApp:not(:has(.tp-lg-hero)) section[data-testid="stMain"] .block-container {
-    padding-top:.35rem!important;
-  }
-}
-@media(max-width:768px){
-  .stApp:not(:has(.tp-lg-hero)) section[data-testid="stMain"] .block-container {
-    padding-top:3.25rem!important;
-    padding-left:12px!important;
-    padding-right:12px!important;
-  }
-}
-/* El login conserva su propio ancho y disposición original. */
-</style>""")
-
