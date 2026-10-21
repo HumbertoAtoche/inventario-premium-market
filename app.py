@@ -4112,6 +4112,78 @@ def pantalla_stock_intelligence():
             st.dataframe(result['scores'].sort_values('MAE validación'),hide_index=True,use_container_width=True)
             if result['holdout']==0: st.warning('Historial insuficiente para una comparación de modelos fuera de muestra.')
             st.caption('Los quiebres históricos de stock pueden ocultar demanda no atendida. Sin historial de existencias diarias no podemos corregir ese sesgo con seguridad.')
+            # FICHA COMERCIAL: interpretación para usuarios sin conocimiento de la tienda.
+            st.markdown('### Ficha comercial · ¿Qué debo saber de este producto?')
+            history_days=max(1,len(serie))
+            sales_days=int((serie>0).sum())
+            last_sale=serie[serie>0].index.max() if sales_days else None
+            days_since=(dates[-1]-last_sale).days if last_sale is not None else None
+            recent7=float(serie.iloc[-7:].sum())
+            prior7=float(serie.iloc[-14:-7].sum()) if len(serie)>=14 else np.nan
+            variation=(recent7/prior7-1)*100 if np.isfinite(prior7) and prior7>0 else np.nan
+            cv=float(serie.std()/serie.mean()) if serie.mean()>0 and len(serie)>1 else np.nan
+            share=sales_days/history_days*100
+            category=str(item.get('Categoria','') or 'Sin categoría')
+            if share>=70: rhythm='Venta frecuente'
+            elif share>=30: rhythm='Venta intermitente'
+            else: rhythm='Venta esporádica'
+            if np.isfinite(cv) and cv>1.3: rhythm+=' y variable'
+            trend=('creciendo' if variation>15 else 'disminuyendo' if variation< -15 else 'estable') if np.isfinite(variation) else 'sin comparación suficiente'
+            profile=st.columns(4)
+            profile[0].metric('Días con ventas',f'{sales_days} de {history_days}',help='Días con al menos una unidad vendida dentro del periodo analizado')
+            profile[1].metric('Unidades últimos 7 días',f'{recent7:,.0f}')
+            profile[2].metric('Variación vs. semana previa',f'{variation:+.1f}%' if np.isfinite(variation) else 'Sin base')
+            profile[3].metric('Última venta',f'{days_since} días atrás' if days_since is not None else 'Sin ventas')
+            st.markdown(f'''<div style="background:#FFFFFF;border:1px solid #E5EAF1;border-left:4px solid #00A959;border-radius:12px;padding:18px 20px;margin:10px 0 18px;color:#23334A;line-height:1.65">
+              <div style="font-size:13px;color:#66758D;font-weight:700">LECTURA EJECUTIVA · {html.escape(category)}</div>
+              <div style="font-size:17px;font-weight:750;margin:6px 0">{html.escape(rhythm)} · tendencia {html.escape(trend)}</div>
+              Se vendieron <b>{float(item['Unidades']):,.0f} unidades</b> en {history_days} días calendario, con ventas en <b>{sales_days} días</b> ({share:.0f}% del periodo).
+              El promedio observado es <b>{float(item['Demanda']):.2f} unidades/día</b>. Este promedio incluye días sin ventas registradas.
+              La cobertura estimada del stock es <b>{float(item['Cobertura']):.1f} días</b> si hay demanda positiva y el stock está actualizado.
+              </div>''',unsafe_allow_html=True)
+            if not bool(item['Vinculado']):
+                st.error('No hay coincidencia de código con Inventario: no se debe recomendar compra ni interpretar stock hasta corregir el vínculo.')
+            elif float(item['Stock'])<=0 and float(item['Demanda'])>0:
+                st.error('Producto agotado según el inventario: revisar reposición y verificar si las ventas recientes estuvieron limitadas por falta de stock.')
+            elif float(item['Stock'])<=float(item['PuntoPedido']) and float(item['Demanda'])>0:
+                st.warning(f"Revisar reposición: stock {float(item['Stock']):.0f} und, punto de pedido {float(item['PuntoPedido']):.0f} und y plazo de proveedor configurado de {int(lead)} días.")
+            elif float(item['Demanda'])>0:
+                st.success('Sin alerta inmediata de reposición según los parámetros actuales. Vigilar las ventas y el plazo real de entrega.')
+            st.markdown('### Patrón comercial y calendario')
+            dailyframe=pd.DataFrame({'Fecha':serie.index,'Unidades':serie.values})
+            dailyframe['Semana']=dailyframe['Fecha'].dt.to_period('W-SUN').astype(str)
+            weekly=dailyframe.groupby('Semana',as_index=False)['Unidades'].sum()
+            col_week,col_month=st.columns(2)
+            with col_week:
+                st.markdown('**Unidades vendidas por semana**')
+                fig=go.Figure(go.Bar(x=weekly['Semana'],y=weekly['Unidades'],marker_color='#00A959',name='Ventas semanales'))
+                _p_plot(fig,320)
+            with col_month:
+                st.markdown('**Distribución de días con venta**')
+                fig=go.Figure(go.Bar(x=['Con venta','Sin venta'],y=[sales_days,history_days-sales_days],marker_color=['#00A959','#DCE4ED']))
+                _p_plot(fig,320)
+            st.markdown('### Simulador de reposición · ¿Qué sucede si compro hoy?')
+            sim_left,sim_right=st.columns([1,2])
+            with sim_left:
+                arrival=int(st.number_input('Llegada del pedido (días)',min_value=1,max_value=90,value=int(lead),key='psi_sim_lead'))
+                suggested=int(max(0,float(item['Sugerencia'])))
+                order=int(st.number_input('Cantidad que planeas comprar',min_value=0,max_value=100000,value=suggested,key='psi_sim_units'))
+                st.caption('Simulación orientativa. No representa un pedido registrado ni descuenta compras en tránsito.')
+            with sim_right:
+                future_sim=pd.date_range(dates[-1]+pd.Timedelta(days=1),periods=horizon,freq='D')
+                demand_sim=np.asarray(result['pronostico'],dtype=float)
+                no_order=np.maximum(0,float(item['Stock'])-np.cumsum(demand_sim))
+                with_order=np.maximum(0,float(item['Stock'])-np.cumsum(demand_sim)+np.where(np.arange(horizon)>=arrival-1,order,0))
+                fig=go.Figure()
+                fig.add_trace(go.Scatter(x=future_sim,y=no_order,mode='lines',name='Sin comprar',line=dict(color='#EC3237',width=3)))
+                fig.add_trace(go.Scatter(x=future_sim,y=with_order,mode='lines',name='Con pedido simulado',line=dict(color='#00A959',width=3)))
+                fig.add_hline(y=0,line_color='#A9B5C4')
+                _p_plot(fig,340)
+            cost=float(item['CostoUnitario'])
+            st.info(f'Pedido simulado: {order} unidades · inversión aproximada S/ {order*cost:,.2f} (costo unitario de inventario). La línea verde supone recepción al inicio del día {arrival}; no recupera ventas perdidas durante un quiebre.')
+            with st.expander('Cómo interpretar los indicadores y sus limitaciones'):
+                st.markdown('''**Demanda diaria:** unidades vendidas divididas entre días calendario de la ventana, no entre días con ventas. **Cobertura:** stock / demanda media; no garantiza una fecha exacta de agotamiento. **Stock de seguridad:** reserva estimada por dispersión diaria y nivel de servicio configurado. **Punto de pedido:** demanda esperada durante el plazo de entrega más reserva. **Pronóstico:** modelo seleccionado por prueba temporal; una línea plana significa que el método ganador no modeló diferencias por día. **Intervalos:** bandas orientativas, no probabilidades calibradas. **Días sin ventas:** pueden ser falta de demanda, cierre, ausencia de carga o quiebre de stock; el sistema no puede distinguirlos sin más datos. **Simulador:** no incorpora pedidos ya comprometidos ni restricciones de caja/proveedor.''')
+            st.download_button('📥 Descargar ficha de producto (Excel)',_p_excel({'Ventas diarias':dailyframe,'Ventas semanales':weekly,'Pronostico':pd.DataFrame({'Fecha':future,'Central':result['pronostico'],'Bajo':result['inferior'],'Alto':result['superior']}),'Modelos':result['scores']}),file_name=f'Ficha_producto_{str(selected)[:24]}.xlsx',mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',key='psi_product_export')
     with tab3:
         st.markdown('### Optimizador de compras y capital')
         st.caption('Prioriza urgencia de quiebre y margen. El presupuesto no garantiza un óptimo global; es una selección heurística auditable.')
