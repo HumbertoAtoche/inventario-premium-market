@@ -3814,11 +3814,14 @@ _P_COLORS = {'red':'#EC3237','green':'#00A959','blue':'#2777BC','navy':'#1D2A44'
 
 
 def _p_plot(fig, height=350):
+    # Etiquetas legibles sin necesidad de hover.
+    fig.update_layout(uniformtext_minsize=10, uniformtext_mode='show')
     fig.update_layout(template='plotly_white', height=height, margin=dict(l=12,r=12,t=30,b=15),
         paper_bgcolor='white', plot_bgcolor='white', font=dict(color='#34435A',size=12),
         hovermode='x unified', legend=dict(orientation='h',y=-0.22),
         xaxis=dict(showgrid=False), yaxis=dict(gridcolor='#EEF1F5'))
-    st.plotly_chart(fig, use_container_width=True, config={'displaylogo':False,'scrollZoom':False})
+    fig.update_yaxes(automargin=True)
+    st.plotly_chart(fig, use_container_width=True, config={'displaylogo':False,'scrollZoom':False,'toImageButtonOptions':{'format':'png','scale':2}})
 
 
 def _p_inventory(inv):
@@ -3977,7 +3980,7 @@ def _p_scenario_plot(stock,forecast,lower,upper,dates,lead,point):
     fig=go.Figure()
     fig.add_trace(go.Scatter(x=list(dates)+list(dates[::-1]),y=list(optimistic)+list(pessimistic[::-1]),
          fill='toself',fillcolor='rgba(39,119,188,.12)',line=dict(color='rgba(0,0,0,0)'),name='Escenarios bajo/alto'))
-    fig.add_trace(go.Scatter(x=dates,y=expected,name='Stock esperado',line=dict(color=_P_COLORS['blue'],width=3)))
+    fig.add_trace(go.Scatter(x=dates,y=expected,name='Stock esperado',mode='lines+markers+text',text=[f'{v:.1f}' for v in expected],textposition='top center',textfont=dict(size=10,color=_P_COLORS['blue']),cliponaxis=False,line=dict(color=_P_COLORS['blue'],width=3)))
     fig.add_hline(y=point,line_dash='dot',line_color=_P_COLORS['red'],annotation_text='Punto de pedido')
     if lead<len(dates): fig.add_vline(x=dates[lead].timestamp()*1000,line_dash='dash',line_color=_P_COLORS['green'])
     _p_plot(fig,390)
@@ -4084,7 +4087,7 @@ def _psi_manager_purchase_view(summary, dates, grouped, ventas, lead, service):
     with left:
         st.markdown('**¿Qué productos concentran la compra?**')
         top=plan.nlargest(12,'Inversión S/').sort_values('Inversión S/')
-        fig=go.Figure(go.Bar(x=top['Inversión S/'],y=top['Producto'].str.slice(0,42),orientation='h',marker_color='#00A959'))
+        fig=go.Figure(go.Bar(x=top['Inversión S/'],y=top['Producto'].str.slice(0,42),orientation='h',marker_color='#00A959',text=[f'S/ {v:,.0f}' for v in top['Inversión S/']],textposition='outside',cliponaxis=False))
         fig.update_xaxes(title='Inversión sugerida (S/)')
         _p_plot(fig,400)
     with right:
@@ -4151,8 +4154,8 @@ def pantalla_stock_intelligence():
             st.markdown('**Evolución diaria de ventas y unidades**')
             daily=ventas.groupby('Dia',as_index=False).agg(Unidades=('Cantidad','sum'),Ventas=('VentaTotal','sum'))
             fig=make_subplots(specs=[[{'secondary_y':True}]])
-            fig.add_trace(go.Bar(x=daily['Dia'],y=daily['Ventas'],name='Ventas S/',marker_color='#00A959'),secondary_y=False)
-            fig.add_trace(go.Scatter(x=daily['Dia'],y=daily['Unidades'],name='Unidades',line=dict(color='#EC3237',width=2)),secondary_y=True)
+            fig.add_trace(go.Bar(x=daily['Dia'],y=daily['Ventas'],name='Ventas S/',marker_color='#00A959',text=[f'{v:.0f}' for v in daily['Ventas']],textposition='outside',textfont=dict(size=10)),secondary_y=False)
+            fig.add_trace(go.Scatter(x=daily['Dia'],y=daily['Unidades'],name='Unidades',mode='lines+markers+text',text=[f'{v:.0f}' for v in daily['Unidades']],textposition='top center',textfont=dict(size=10),line=dict(color='#EC3237',width=2)),secondary_y=True)
             fig.update_yaxes(title_text='Soles',secondary_y=False);fig.update_yaxes(title_text='Unidades',secondary_y=True)
             _p_plot(fig,365)
         with c2:
@@ -4163,7 +4166,7 @@ def pantalla_stock_intelligence():
             _p_plot(fig,365)
         st.markdown('### Ranking de mayor rotación')
         top=summary[summary['Unidades']>0].nlargest(20,'Unidades').sort_values('Unidades')
-        fig=go.Figure(go.Bar(x=top['Unidades'],y=top['Producto'].str.slice(0,38),orientation='h',marker_color='#00A959',customdata=top['Clave'],hovertemplate='%{y}<br>%{x:.0f} unidades<br>Código %{customdata}<extra></extra>'))
+        fig=go.Figure(go.Bar(x=top['Unidades'],y=top['Producto'].str.slice(0,38),orientation='h',marker_color='#00A959',text=top['Unidades'].round(0).astype(int).astype(str),textposition='outside',cliponaxis=False,customdata=top['Clave'],hovertemplate='%{y}<br>%{x:.0f} unidades<br>Código %{customdata}<extra></extra>'))
         _p_plot(fig,max(360,len(top)*26))
         st.dataframe(summary.nlargest(30,'Unidades')[['Producto','Clave','Unidades','Demanda','Stock','Cobertura','Margen','Riesgo']],hide_index=True,use_container_width=True)
     with tab2:
@@ -4195,14 +4198,14 @@ def pantalla_stock_intelligence():
                 st.markdown('**Histórico y pronóstico de unidades por día**')
                 future=pd.date_range(dates[-1]+pd.Timedelta(days=1),periods=horizon,freq='D')
                 fig=go.Figure()
-                fig.add_trace(go.Bar(x=serie.index,y=serie.values,name='Venta real',marker_color='#A8D9C1'))
+                fig.add_trace(go.Bar(x=serie.index,y=serie.values,name='Venta real',marker_color='#A8D9C1',text=[f'{v:g}' for v in serie.values],textposition='outside',textfont=dict(size=9)))
                 fig.add_trace(go.Scatter(x=list(future)+list(future[::-1]),y=list(result['superior'])+list(result['inferior'][::-1]),fill='toself',fillcolor='rgba(39,119,188,.12)',line=dict(color='rgba(0,0,0,0)'),name='Escenario de variación'))
-                fig.add_trace(go.Scatter(x=future,y=result['pronostico'],name='Pronóstico',line=dict(color='#2777BC',width=3)))
+                fig.add_trace(go.Scatter(x=future,y=result['pronostico'],name='Pronóstico',mode='lines+markers+text',text=[f'{v:.1f}' for v in result['pronostico']],textposition='top center',textfont=dict(size=10,color='#2777BC'),line=dict(color='#2777BC',width=3)))
                 _p_plot(fig,380)
             with right:
                 st.markdown('**Demanda según día de la semana**')
                 week=pd.DataFrame({'dia':serie.index.dayofweek,'qty':serie.values}).groupby('dia')['qty'].mean().reindex(range(7),fill_value=0)
-                fig=go.Figure(go.Bar(x=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'],y=week.values,marker_color='#00A959'))
+                fig=go.Figure(go.Bar(x=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'],y=week.values,marker_color='#00A959',text=[f'{v:.1f}' for v in week.values],textposition='outside'))
                 _p_plot(fig,380)
             st.markdown('**Proyección de agotamiento sin nuevas compras**')
             if item['Vinculado']:
@@ -4258,11 +4261,11 @@ def pantalla_stock_intelligence():
             col_week,col_month=st.columns(2)
             with col_week:
                 st.markdown('**Unidades vendidas por semana**')
-                fig=go.Figure(go.Bar(x=weekly['Semana'],y=weekly['Unidades'],marker_color='#00A959',name='Ventas semanales'))
+                fig=go.Figure(go.Bar(x=weekly['Semana'],y=weekly['Unidades'],marker_color='#00A959',name='Ventas semanales',text=[f'{v:g}' for v in weekly['Unidades']],textposition='outside'))
                 _p_plot(fig,320)
             with col_month:
                 st.markdown('**Distribución de días con venta**')
-                fig=go.Figure(go.Bar(x=['Con venta','Sin venta'],y=[sales_days,history_days-sales_days],marker_color=['#00A959','#DCE4ED']))
+                fig=go.Figure(go.Bar(x=['Con venta','Sin venta'],y=[sales_days,history_days-sales_days],marker_color=['#00A959','#DCE4ED'],text=[str(sales_days),str(history_days-sales_days)],textposition='outside'))
                 _p_plot(fig,320)
             st.markdown('### Simulador de reposición · ¿Qué sucede si compro hoy?')
             sim_left,sim_right=st.columns([1,2])
@@ -4277,8 +4280,8 @@ def pantalla_stock_intelligence():
                 no_order=np.maximum(0,float(item['Stock'])-np.cumsum(demand_sim))
                 with_order=np.maximum(0,float(item['Stock'])-np.cumsum(demand_sim)+np.where(np.arange(horizon)>=arrival-1,order,0))
                 fig=go.Figure()
-                fig.add_trace(go.Scatter(x=future_sim,y=no_order,mode='lines',name='Sin comprar',line=dict(color='#EC3237',width=3)))
-                fig.add_trace(go.Scatter(x=future_sim,y=with_order,mode='lines',name='Con pedido simulado',line=dict(color='#00A959',width=3)))
+                fig.add_trace(go.Scatter(x=future_sim,y=no_order,mode='lines+markers+text',text=[f'{v:.1f}' for v in no_order],textposition='bottom center',textfont=dict(size=10,color='#EC3237'),name='Sin comprar',line=dict(color='#EC3237',width=3)))
+                fig.add_trace(go.Scatter(x=future_sim,y=with_order,mode='lines+markers+text',text=[f'{v:.1f}' for v in with_order],textposition='top center',textfont=dict(size=10,color='#00A959'),name='Con pedido simulado',line=dict(color='#00A959',width=3)))
                 fig.add_hline(y=0,line_color='#A9B5C4')
                 _p_plot(fig,340)
             cost=float(item['CostoUnitario'])
