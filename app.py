@@ -88,7 +88,7 @@ HEADERS_RESUMEN = [
     "IdSesion", "Fecha", "NombreSesion", "Sucursal", "ProductosSistema",
     "ProductosContados", "ProductosOK", "ProductosFaltantes", "ProductosSobrantes",
     "UnidadesSistema", "UnidadesFisicas", "UnidadesFaltantes", "UnidadesSobrantes",
-    "ValorFaltantes", "ValorSobrantes", "DesfaseNeto", "ExactitudInventario", "Estado"
+    "ValorFaltantes", "ValorSobrantes", "DesfaseNeto", "ExactitudInventario", "Estado", "CoberturaInventario", "ProductosPendientes", "CerosVerificados", "NoLocalizados", "ObservacionCierre"
 ]
 
 HEADERS_USUARIOS = ["Usuario", "NombreCompleto", "Rol", "Password", "Estado"]
@@ -949,6 +949,8 @@ def actualizar_datos():
     cargar_sesiones.clear()
     cargar_resumenes.clear()
     cargar_auditoria.clear()
+    cargar_universo.clear()
+    cargar_no_localizados.clear()
 
 # =========================================================
 # CARGADORES — SOLO LECTURAS CACHEADAS
@@ -1079,6 +1081,105 @@ def conteos_vigentes(df):
     return d.drop(columns="_clave").sort_index()
 
 
+# ETAPA 1 — universo fijo y excepciones de verificación (hojas auxiliares)
+HOJA_UNIVERSO = "UniversoInventario"
+HOJA_NO_LOCALIZADOS = "NoLocalizadosInventario"
+HEADERS_UNIVERSO = ["IdSesion"] + HEADERS_INVENTARIO
+HEADERS_NO_LOCALIZADOS = ["IdSesion", "FechaHora", "Usuario", "CodigoBarras", "CodigoProducto", "Producto", "Sucursal", "Motivo"]
+
+@st.cache_resource(show_spinner=False)
+def hoja_control(nombre, encabezados):
+    libro = conectar_google()
+    try:
+        return libro.worksheet(nombre)
+    except gspread.exceptions.WorksheetNotFound:
+        hoja = libro.add_worksheet(title=nombre, rows=2000, cols=len(encabezados))
+        hoja.append_row(encabezados, value_input_option="RAW")
+        return hoja
+
+@st.cache_data(ttl=30, show_spinner=False)
+def cargar_universo():
+    return normalizar_df(pd.DataFrame(hoja_control(HOJA_UNIVERSO, HEADERS_UNIVERSO).get_all_records()), HEADERS_UNIVERSO)
+
+@st.cache_data(ttl=30, show_spinner=False)
+def cargar_no_localizados():
+    return normalizar_df(pd.DataFrame(hoja_control(HOJA_NO_LOCALIZADOS, HEADERS_NO_LOCALIZADOS).get_all_records()), HEADERS_NO_LOCALIZADOS)
+
+def clave_producto(df):
+    # Se identifica por sucursal + código; evita colisiones entre tiendas.
+    return df["Sucursal"].astype(str).str.strip().str.casefold() + "|" + _claves_df(df).astype(str).str.strip().str.casefold()
+
+def universo_sesion(id_sesion, sucursal=""):
+    universo = cargar_universo()
+    subset = universo[universo["IdSesion"].astype(str) == str(id_sesion)]
+    if not subset.empty:
+        d = subset[HEADERS_INVENTARIO].copy()
+        for col in ["StockSistema", "CostoUnitario", "PrecioVenta"]:
+            d[col] = pd.to_numeric(d[col], errors="coerce").fillna(0)
+        return d.drop_duplicates(subset=["Sucursal", "CodigoProducto", "CodigoBarras"], keep="first")
+    # Sesiones históricas anteriores a la actualización: catálogo actual, identificado como estimación.
+    return inventario_de_sucursal(cargar_inventario(), sucursal)
+
+def localizados_vigentes(id_sesion):
+    d = cargar_no_localizados()
+    d = d[d["IdSesion"].astype(str) == str(id_sesion)]
+    return d.drop_duplicates(["IdSesion", "Sucursal", "CodigoBarras", "CodigoProducto"], keep="last")
+
+def estado_cobertura(id_sesion, sucursal=""):
+    inv = universo_sesion(id_sesion, sucursal).copy()
+    if inv.empty:
+        return inv.assign(EstadoVerificacion=pd.Series(dtype=str))
+    inv["_clave"] = clave_producto(inv)
+    if inv["_clave"].duplicated().any():
+        raise ValueError("Existen productos con códigos duplicados en la misma sucursal. Corrige el catálogo antes de calcular la cobertura.")
+    inv["EstadoVerificacion"] = "PENDIENTE"
+    nc = localizados_vigentes(id_sesion)
+    if not nc.empty:
+        inv.loc[inv["_clave"].isin(set(clave_producto(nc))), "EstadoVerificacion"] = "NO LOCALIZADO"
+    conteos = cargar_conteos()
+    dc = conteos_vigentes(conteos[conteos["IdSesion"].astype(str) == str(id_sesion)]) if not conteos.empty else conteos
+    if not dc.empty:
+        estados = dc.copy()
+        estados["_clave"] = clave_producto(estados)
+        estados["_estado"] = estados.apply(lambda r: "CERO VERIFICADO" if limpiar_numero(r["StockSistema"]) == 0 and limpiar_numero(r["StockFisico"]) == 0 else ("CONFORME" if limpiar_numero(r["Diferencia"]) == 0 else ("FALTANTE" if limpiar_numero(r["Diferencia"]) < 0 else "SOBRANTE")), axis=1)
+        inv["EstadoVerificacion"] = inv["_clave"].map(estados.drop_duplicates("_clave", keep="last").set_index("_clave")["_estado"]).fillna(inv["EstadoVerificacion"])
+    return inv.drop(columns="_clave")
+
+def metricas_cobertura(id_sesion, sucursal=""):
+    d = estado_cobertura(id_sesion, sucursal)
+    total = len(d)
+    contados = int(d["EstadoVerificacion"].isin(["CONFORME", "CERO VERIFICADO", "FALTANTE", "SOBRANTE"]).sum()) if total else 0
+    conformes = int(d["EstadoVerificacion"].isin(["CONFORME", "CERO VERIFICADO"]).sum()) if total else 0
+    return {"total": total, "contados": contados, "pendientes": total-contados,
+            "ceros": int((d["EstadoVerificacion"] == "CERO VERIFICADO").sum()) if total else 0,
+            "no_localizados": int((d["EstadoVerificacion"] == "NO LOCALIZADO").sum()) if total else 0,
+            "cobertura": 100*contados/total if total else 0,
+            "exactitud": 100*conformes/contados if contados else 0}
+
+def registrar_no_localizado(sesion, producto, motivo):
+    if not motivo.strip():
+        raise ValueError("Indica dónde se buscó o por qué no se pudo localizar el producto.")
+    if ultimo_conteo_producto(sesion["IdSesion"], producto) is not None:
+        raise ValueError("El producto ya tiene un conteo; utiliza reconteo para modificarlo.")
+    fila = [sesion["IdSesion"], ahora(), st.session_state.usuario["Usuario"],
+            limpiar_codigo(producto.get("CodigoBarras", "")), limpiar_codigo(producto.get("CodigoProducto", "")),
+            producto.get("Producto", ""), producto.get("Sucursal", ""), motivo.strip()]
+    hoja_control(HOJA_NO_LOCALIZADOS, HEADERS_NO_LOCALIZADOS).append_row(fila, value_input_option="RAW")
+    cargar_no_localizados.clear()
+    registrar_auditoria("NO_LOCALIZADO", f"{producto.get('Producto', '')}: {motivo}", sesion["IdSesion"])
+
+def guardar_universo_sesion(id_sesion, sucursal):
+    inv = inventario_de_sucursal(cargar_inventario(), sucursal)
+    if inv.empty:
+        raise ValueError("La sucursal no tiene productos; no se puede iniciar el inventario.")
+    if clave_producto(inv).duplicated().any():
+        raise ValueError("Existen códigos de producto duplicados en la sucursal. Corrige el catálogo antes de abrir la sesión.")
+    rows = [[id_sesion] + [str(r.get(c, "")) for c in HEADERS_INVENTARIO] for _, r in inv.iterrows()]
+    ws = hoja_control(HOJA_UNIVERSO, HEADERS_UNIVERSO)
+    for i in range(0, len(rows), 300):
+        ws.append_rows(rows[i:i+300], value_input_option="RAW")
+    cargar_universo.clear()
+
 def contar_productos_sesion(conteos, id_sesion):
     """Productos distintos contados en una sesión (un reconteo no suma dos veces)."""
     if conteos is None or conteos.empty:
@@ -1114,7 +1215,7 @@ def inventario_de_sucursal(inv, sucursal):
     if not suc:
         return inv
     filtrado = inv[inv["Sucursal"].astype(str).str.strip().str.lower() == suc]
-    return filtrado if not filtrado.empty else inv
+    return filtrado  # Nunca mezclar sucursales si el nombre no coincide
 
 
 def es_diferencia_critica(stock_sistema, stock_fisico, costo):
@@ -1143,7 +1244,7 @@ def autenticar(usuario, password):
     if str(registro["Estado"]).strip().lower() not in ["activo", "activa", "1", "true", "sí", "si"]:
         return None
     guardada = str(registro["Password"]).strip()
-    if password == guardada or hash_password(password) == guardada:
+    if hash_password(password) == guardada or (password == guardada and len(guardada) != 64):
         return registro.to_dict()
     return None
 
@@ -1195,7 +1296,7 @@ def producto_ya_contado(id_sesion, codigo):
     if df.empty:
         return False
     codigo = limpiar_codigo(codigo)
-    return bool(((df["IdSesion"] == str(id_sesion)) & (df["CodigoBarras"].map(limpiar_codigo) == codigo)).any())
+    return bool(((df["IdSesion"] == str(id_sesion)) & ((df["CodigoBarras"].map(limpiar_codigo) == codigo) if codigo else (df["CodigoBarras"].map(limpiar_codigo) == "__NO_COINCIDE__"))).any())
 
 
 def guardar_conteo(sesion, usuario, producto, stock_fisico, metodo="Escáner", observacion="", es_reconteo=False):
@@ -1244,6 +1345,7 @@ def crear_sesion(nombre, sucursal, usuario, observacion=""):
         id_sesion, ahora(), "", nombre.strip(), usuario["Usuario"],
         "ABIERTA", sucursal.strip(), observacion.strip()
     ]
+    guardar_universo_sesion(id_sesion, sucursal.strip())
     obtener_hoja("sesiones").append_row(fila, value_input_option="USER_ENTERED")
     cargar_sesiones.clear()
     registrar_auditoria("CREAR_SESION", f"{nombre.strip()} · {sucursal.strip()}", id_sesion)
@@ -1288,7 +1390,8 @@ def calcular_resumen(id_sesion):
     sucursal = ses.iloc[0]["Sucursal"] if not ses.empty else ""
     estado = ses.iloc[0]["Estado"] if not ses.empty else ""
 
-    productos_contados = len(dc)
+    cobertura = metricas_cobertura(id_sesion, sucursal)
+    productos_contados = cobertura["contados"]
     productos_ok = int((dc["TipoDiferencia"] == "OK").sum()) if not dc.empty else 0
     productos_faltantes = int((dc["TipoDiferencia"] == "FALTANTE").sum()) if not dc.empty else 0
     productos_sobrantes = int((dc["TipoDiferencia"] == "SOBRANTE").sum()) if not dc.empty else 0
@@ -1307,7 +1410,7 @@ def calcular_resumen(id_sesion):
         "Fecha": fecha_actual(),
         "NombreSesion": nombre,
         "Sucursal": sucursal,
-        "ProductosSistema": len(inventario_de_sucursal(inv, sucursal)),
+        "ProductosSistema": cobertura["total"],
         "ProductosContados": productos_contados,
         "ProductosOK": productos_ok,
         "ProductosFaltantes": productos_faltantes,
@@ -1321,12 +1424,21 @@ def calcular_resumen(id_sesion):
         "DesfaseNeto": desfase_neto,
         "ExactitudInventario": exactitud,
         "Estado": estado,
+        "CoberturaInventario": cobertura["cobertura"],
+        "ProductosPendientes": cobertura["pendientes"],
+        "CerosVerificados": cobertura["ceros"],
+        "NoLocalizados": cobertura["no_localizados"],
+        "ObservacionCierre": "",
     }
 
 
 def guardar_resumen(resumen):
     fila = [resumen.get(col, "") for col in HEADERS_RESUMEN]
-    obtener_hoja("resumen").append_row(fila, value_input_option="USER_ENTERED")
+    ws = obtener_hoja("resumen")
+    encabezado_actual = ws.row_values(1)
+    if encabezado_actual != HEADERS_RESUMEN:
+        ws.update("A1", [HEADERS_RESUMEN])
+    ws.append_row(fila, value_input_option="USER_ENTERED")
     cargar_resumenes.clear()
 
 
@@ -1679,6 +1791,10 @@ def pantalla_inicio():
     with k3: kpi("Valor inventario", formato_soles(valor_inventario), "a costo")
     with k4: kpi("Sesiones abiertas", str(sesiones_abiertas), "en curso")
 
+    sesion_actual = obtener_sesion_abierta()
+    if sesion_actual:
+        m = metricas_cobertura(sesion_actual["IdSesion"], sesion_actual["Sucursal"])
+        st.progress(m["cobertura"]/100 if m["total"] else 0, text=f"Inventario activo · Cobertura {m['cobertura']:.1f}% · {m['pendientes']} pendientes · Exactitud {m['exactitud']:.1f}%")
     alertas = alertas_operativas(inv, sesiones)
     if alertas:
         st.markdown("<div class='section-title'>🚨 Alertas</div>", unsafe_allow_html=True)
@@ -1747,20 +1863,16 @@ def pantalla_sesion():
             resumen = calcular_resumen(sesion["IdSesion"])
             kpi("Desfase neto", formato_soles(resumen["DesfaseNeto"]), "faltantes - sobrantes")
 
-        total_inv = len(inventario_de_sucursal(cargar_inventario(), sesion["Sucursal"]))
-        pendientes = max(total_inv - total, 0)
-        confirmar_cierre = True
-        if pendientes > 0:
-            st.warning(
-                f"Quedan {pendientes:,} producto(s) sin contar ({total:,} de {total_inv:,}). "
-                "Si cierras ahora, esos productos no formarán parte del resultado."
-            )
-            confirmar_cierre = st.checkbox(
-                "Entiendo que hay productos sin contar y deseo cerrar la sesión igualmente",
-                key=f"confirmar_cierre_{sesion['IdSesion']}",
-            )
-
-        st.markdown("<div class='section-title'>Acciones</div>", unsafe_allow_html=True)
+        m = metricas_cobertura(sesion["IdSesion"], sesion["Sucursal"])
+        st.progress(m["cobertura"] / 100, text=f"Cobertura {m['cobertura']:.1f}% · {m['contados']:,}/{m['total']:,} verificados")
+        a, b, c = st.columns(3)
+        with a: kpi("Pendientes", f"{m['pendientes']:,}", "sin conteo físico")
+        with b: kpi("Ceros verificados", f"{m['ceros']:,}", "comprobados")
+        with c: kpi("Exactitud", f"{m['exactitud']:.1f}%", "de los contados")
+        if m["pendientes"]:
+            st.warning(f"Se puede cerrar parcialmente, pero {m['pendientes']:,} productos quedarán pendientes, no como faltantes.")
+        observacion_cierre = st.text_area("Observación de cierre", placeholder="Motivo del cierre parcial", key=f"obs_cierre_{sesion['IdSesion']}")
+        confirmar_cierre = st.checkbox("Confirmo el cierre y el registro de los productos pendientes", key=f"confirmar_cierre_{sesion['IdSesion']}")
         a1, a2 = st.columns(2)
         with a1:
             if st.button("📷 Continuar inventario", use_container_width=True):
@@ -1768,21 +1880,22 @@ def pantalla_sesion():
                 st.rerun()
         with a2:
             if st.button("🔒 Cerrar sesión", use_container_width=True, disabled=not confirmar_cierre):
-                try:
-                    resumen = calcular_resumen(sesion["IdSesion"])
-                    detalle_cierre = (
-                        f"Contados {total:,}/{total_inv:,} · Exactitud {resumen['ExactitudInventario']:.1f}% · "
-                        f"Desfase {formato_soles(resumen['DesfaseNeto'])}"
-                    )
-                    if not cerrar_sesion(sesion["IdSesion"], detalle_cierre):
-                        st.error("No se encontró la sesión para cerrar.")
-                    else:
-                        resumen["Estado"] = "CERRADA"
-                        guardar_resumen(resumen)
-                        st.success("Sesión cerrada correctamente.")
-                        st.rerun()
-                except Exception as exc:
-                    mostrar_error_google(exc, "cierre de sesión")
+                if m["pendientes"] and not observacion_cierre.strip():
+                    st.error("Para un cierre parcial debes indicar el motivo.")
+                else:
+                    try:
+                        resumen = calcular_resumen(sesion["IdSesion"])
+                        resumen["ObservacionCierre"] = observacion_cierre.strip()
+                        detalle_cierre = f"Cobertura {m['cobertura']:.1f}% · pendientes {m['pendientes']} · {observacion_cierre.strip()}"
+                        if not cerrar_sesion(sesion["IdSesion"], detalle_cierre):
+                            st.error("No se encontró la sesión para cerrar.")
+                        else:
+                            resumen["Estado"] = "CERRADA"
+                            guardar_resumen(resumen)
+                            st.success("Sesión cerrada; pendientes conservados en el universo de la sesión.")
+                            st.rerun()
+                    except Exception as exc:
+                        mostrar_error_google(exc, "cierre de sesión")
     else:
         st.markdown("<div class='card'><b>ℹ️ No hay una sesión abierta.</b><br>Crea una para comenzar el conteo físico.</div>", unsafe_allow_html=True)
         with st.form("crear_sesion"):
@@ -1882,8 +1995,8 @@ def pantalla_scanner(sesion=None):
 # =========================================================
 
 def pantalla_producto(producto, sesion):
-    codigo = limpiar_codigo(producto.get("CodigoBarras", ""))
-    ya_contado = producto_ya_contado(sesion["IdSesion"], codigo)
+    codigo = limpiar_codigo(producto.get("CodigoBarras", "")) or limpiar_codigo(producto.get("CodigoProducto", "")) or str(producto.get("Producto", ""))
+    ya_contado = ultimo_conteo_producto(sesion["IdSesion"], producto) is not None
     # El reconteo solo aplica a productos ya contados (evita etiquetar mal si la bandera quedó activa).
     es_reconteo = bool(st.session_state.get("reconteo_activo", False)) and ya_contado
     previo = ultimo_conteo_producto(sesion["IdSesion"], producto)
@@ -1975,12 +2088,24 @@ def pantalla_producto(producto, sesion):
             key=f"confirma_dif_{codigo}_{sesion['IdSesion']}",
         )
 
+    verificacion = st.checkbox("He verificado físicamente este producto y confirmo la cantidad indicada (incluido cero).", key=f"verificado_{sesion['IdSesion']}_{codigo}")
     metodo = st.selectbox("Método de conteo", ["Escáner", "Búsqueda manual", "Código manual"])
     observacion = st.text_area("Observación", placeholder="Opcional")
 
+    if not ya_contado:
+        with st.expander("🔎 No encuentro este producto"):
+            motivo_no_localizado = st.text_area("Dónde se buscó / motivo", key=f"motivo_nl_{sesion['IdSesion']}_{codigo}")
+            if st.button("Registrar como no localizado", key=f"nl_{sesion['IdSesion']}_{codigo}"):
+                try:
+                    registrar_no_localizado(sesion, producto, motivo_no_localizado)
+                    st.session_state.producto_pendiente = None
+                    st.session_state.codigo_pendiente = ""
+                    st.rerun()
+                except Exception as exc:
+                    st.error(str(exc))
     c1, c2 = st.columns(2)
     with c1:
-        if st.button("💾 Guardar conteo", type="primary", use_container_width=True, disabled=not confirmado):
+        if st.button("💾 Guardar conteo", type="primary", use_container_width=True, disabled=not (confirmado and verificacion)):
             try:
                 guardar_conteo(sesion, st.session_state.usuario, producto, fisico, metodo, observacion, es_reconteo=es_reconteo)
                 st.success(f"{'Reconteo' if es_reconteo else 'Conteo'} guardado: {tipo}")
@@ -2239,7 +2364,11 @@ def pantalla_resultados():
     dc_hist = conteos[conteos["IdSesion"].astype(str) == str(seleccionado)].copy() if not conteos.empty else pd.DataFrame()
     dc = conteos_vigentes(dc_hist)  # último conteo de cada producto (respeta reconteos)
     ajustes = generar_ajustes(dc)
-
+    sesion_fila = sesiones[sesiones["IdSesion"].astype(str) == seleccionado].iloc[0]
+    cobertura_det = estado_cobertura(seleccionado, sesion_fila["Sucursal"])
+    m = metricas_cobertura(seleccionado, sesion_fila["Sucursal"])
+    st.progress(m["cobertura"]/100 if m["total"] else 0, text=f"Cobertura {m['cobertura']:.1f}% · {m['pendientes']} pendientes · {m['ceros']} ceros verificados")
+    st.caption(f"Exactitud de los productos verificados: {m['exactitud']:.1f}% · No localizados: {m['no_localizados']}")
     k1, k2, k3, k4 = st.columns(4)
     if resumen["ProductosContados"]:
         nota_exactitud = f"Meta {META_EXACTITUD:.0f}% · " + ("✅ cumple" if resumen["ExactitudInventario"] >= META_EXACTITUD else "⚠️ bajo la meta")
@@ -2424,6 +2553,8 @@ def pantalla_resultados():
                 "Ajustes": ajustes,
                 "Faltantes": lista_diferencias(dc, "FALTANTE"),
                 "Sobrantes": lista_diferencias(dc, "SOBRANTE"),
+                "Pendientes": cobertura_det[cobertura_det["EstadoVerificacion"].isin(["PENDIENTE", "NO LOCALIZADO"])],
+                "Cobertura": cobertura_det,
             })
             st.download_button(
                 "📊 Descargar todo en Excel",
@@ -2440,65 +2571,44 @@ def pantalla_resultados():
 # =========================================================
 
 def _tab_pendientes():
-    inv = cargar_inventario()
-    sesion = obtener_sesion_abierta()
-    if inv.empty:
-        st.info("No hay productos en el inventario.")
+    sesiones = cargar_sesiones()
+    if sesiones.empty:
+        st.info("Todavía no existen sesiones.")
         return
-    if not sesion:
-        st.info("No hay una sesión abierta. Abre una sesión para ver qué productos faltan por contar.")
-        return
-    inv = inventario_de_sucursal(inv, sesion["Sucursal"])
-
-    pend = productos_pendientes(inv, cargar_conteos(), sesion["IdSesion"])
-    total = len(inv)
-    valor_total = float((inv["StockSistema"].clip(lower=0) * inv["CostoUnitario"]).sum())
-    valor_pend = float(pend["Valor"].sum()) if not pend.empty else 0.0
-    avance = (1 - len(pend) / total) * 100 if total else 0.0
-    cobertura = (1 - valor_pend / valor_total) * 100 if valor_total else 0.0
-
-    st.markdown(
-        f"<div class='mobile-note'>🧾 <b>{safe_text(sesion['NombreSesion'])}</b> · {safe_text(sesion['Sucursal'])}</div>",
-        unsafe_allow_html=True,
-    )
-    k1, k2, k3, k4 = st.columns(4)
-    with k1: kpi("Pendientes", f"{len(pend):,}", f"de {total:,} productos")
-    with k2: kpi("Avance", f"{avance:.1f}%", "por productos")
-    with k3: kpi("Valor pendiente", formato_soles(valor_pend), "a costo")
-    with k4: kpi("Cobertura por valor", f"{cobertura:.1f}%", "del valor ya contado")
-
-    c1, c2 = st.columns(2)
-    categorias = sorted([c for c in pend["Categoria"].unique() if c]) if not pend.empty else []
-    cat_sel = c1.multiselect("Categorías (vacío = todas)", categorias)
-    ocultar_cero = c2.checkbox("Ocultar productos con stock 0", value=True)
-
-    vista = pend.copy()
-    if cat_sel:
-        vista = vista[vista["Categoria"].isin(cat_sel)]
-    if ocultar_cero:
-        vista = vista[vista["StockSistema"] != 0]
-    if vista.empty:
-        st.success("🎉 No quedan productos pendientes con estos filtros.")
-        return
-
-    st.caption(f"{len(vista):,} producto(s) pendientes, ordenados por valor: cuenta primero los más costosos para reducir el riesgo.")
-    cols = ["Producto", "CodigoProducto", "CodigoBarras", "Categoria", "Marca", "Sucursal", "StockSistema", "Valor"]
-    st.dataframe(
-        vista[cols].head(300),
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "StockSistema": st.column_config.NumberColumn("Stock", format="%.0f"),
-            "Valor": st.column_config.NumberColumn("Valor a costo", format="S/ %.2f"),
-        },
-    )
-    st.download_button(
-        "📥 Descargar pendientes (CSV)",
-        data=vista[cols].to_csv(index=False).encode("utf-8-sig"),
-        file_name=f"pendientes_{sesion['IdSesion']}.csv",
-        mime="text/csv",
-        use_container_width=True,
-    )
+    ids = sesiones["IdSesion"].astype(str).iloc[::-1].tolist()
+    seleccion = st.selectbox("Sesión a revisar (abierta o histórica)", ids, key="pend_sesion")
+    ses = sesiones[sesiones["IdSesion"].astype(str) == seleccion].iloc[0]
+    d = estado_cobertura(seleccion, ses["Sucursal"])
+    m = metricas_cobertura(seleccion, ses["Sucursal"])
+    st.progress(m["cobertura"]/100 if m["total"] else 0, text=f"Cobertura: {m['cobertura']:.1f}%")
+    c1,c2,c3,c4 = st.columns(4)
+    with c1: kpi("Esperados", str(m["total"]))
+    with c2: kpi("Verificados", str(m["contados"]))
+    with c3: kpi("Pendientes", str(m["pendientes"]))
+    with c4: kpi("Exactitud", f"{m['exactitud']:.1f}%")
+    if not d.empty:
+        st.caption(f"Ceros verificados: {m['ceros']} · No localizados: {m['no_localizados']} (continúan pendientes)")
+        filtro_estado = st.multiselect("Estados", sorted(d["EstadoVerificacion"].unique()), default=["PENDIENTE", "NO LOCALIZADO"])
+        texto = st.text_input("Buscar nombre, código, marca o categoría", key="buscar_pendientes")
+        cats = sorted([str(x) for x in d["Categoria"].dropna().unique() if str(x).strip()])
+        categorias = st.multiselect("Categorías", cats, key="cats_pendientes")
+        solo_cero = st.checkbox("Solo productos con stock sistema cero", value=False)
+        vista = d[d["EstadoVerificacion"].isin(filtro_estado)] if filtro_estado else d.iloc[0:0]
+        if categorias: vista = vista[vista["Categoria"].isin(categorias)]
+        if solo_cero: vista = vista[vista["StockSistema"] == 0]
+        if texto.strip():
+            mask = pd.Series(False, index=vista.index)
+            for col in ["Producto", "CodigoProducto", "CodigoBarras", "Marca", "Categoria"]:
+                mask |= vista[col].astype(str).str.contains(re.escape(texto.strip()), case=False, na=False)
+            vista = vista[mask]
+        columnas = ["Producto", "CodigoProducto", "CodigoBarras", "Categoria", "Marca", "Sucursal", "StockSistema", "EstadoVerificacion"]
+        st.caption(f"Mostrando {len(vista):,} productos · No se ocultan los de stock cero")
+        st.dataframe(vista[columnas], use_container_width=True, hide_index=True)
+        st.download_button("📊 Descargar lista filtrada (Excel)", data=exportar_excel({"Cobertura":vista[columnas]}), file_name=f"cobertura_{seleccion}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
+        pendientes = d[d["EstadoVerificacion"].isin(["PENDIENTE", "NO LOCALIZADO"])]
+        st.download_button("📊 Descargar TODOS los pendientes (Excel)", data=exportar_excel({"Pendientes":pendientes[columnas]}), file_name=f"pendientes_completos_{seleccion}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
+    if cargar_universo()["IdSesion"].astype(str).eq(seleccion).sum() == 0:
+        st.warning("Sesión anterior a esta actualización: cobertura estimada con el catálogo actual; no existe fotografía histórica.")
 
 
 def _tab_abc():
