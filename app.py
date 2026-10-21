@@ -3801,6 +3801,389 @@ def pantalla_compras_inteligentes():
             st.download_button("Descargar análisis de compras (Excel)",exportar_excel({"Plan de compras":resumen[columnas],"Top rotacion":top[["Producto","Clave","Unidades","DemandaDiaria","VentaTotal"]],"Capital inmovilizado":lentos if 'lentos' in locals() else pd.DataFrame()}),file_name="compras_inteligentes_premium.xlsx",mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",use_container_width=True)
 
 
+# ================================================================
+# PREMIUM STOCK INTELLIGENCE — Motor analítico (integrado en app.py)
+# ================================================================
+import numpy as np
+from scipy.stats import norm
+import plotly.graph_objects as go
+import plotly.express as px
+from plotly.subplots import make_subplots
+
+_P_COLORS = {'red':'#EC3237','green':'#00A959','blue':'#2777BC','navy':'#1D2A44','muted':'#7787A0','gray':'#F4F6F9'}
+
+
+def _p_plot(fig, height=350):
+    fig.update_layout(template='plotly_white', height=height, margin=dict(l=12,r=12,t=30,b=15),
+        paper_bgcolor='white', plot_bgcolor='white', font=dict(color='#34435A',size=12),
+        hovermode='x unified', legend=dict(orientation='h',y=-0.22),
+        xaxis=dict(showgrid=False), yaxis=dict(gridcolor='#EEF1F5'))
+    st.plotly_chart(fig, use_container_width=True, config={'displaylogo':False,'scrollZoom':False})
+
+
+def _p_inventory(inv):
+    d=inv.copy()
+    d['Clave']=d['CodigoBarras'].fillna('').astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+    d['Clave']=d['Clave'].mask(d['Clave'].eq(''), d['CodigoProducto'].fillna('').astype(str).str.strip())
+    for c in ['StockSistema','CostoUnitario']:
+        d[c]=pd.to_numeric(d[c],errors='coerce').fillna(0)
+    d['CostoStock']=d['StockSistema'].clip(lower=0)*d['CostoUnitario']
+    g=d.groupby('Clave',as_index=False).agg(Stock=('StockSistema','sum'),Capital=('CostoStock','sum'),ProductoInv=('Producto','first'))
+    g['CostoUnitario']=np.where(g['Stock']>0,g['Capital']/g['Stock'],0)
+    # Para existencias cero, conservar el costo registrado si existe.
+    fallback=d.groupby('Clave')['CostoUnitario'].mean()
+    g['CostoUnitario']=np.where(g['CostoUnitario']>0,g['CostoUnitario'],g['Clave'].map(fallback).fillna(0))
+    return g
+
+
+def _p_daily(ventas, days=None):
+    d=ventas.loc[ventas['CantidadValida']].copy()
+    if d.empty: return d, pd.DatetimeIndex([]), pd.DataFrame()
+    d['Clave']=d['Clave'].astype(str).str.strip().str.replace(r'\.0$','',regex=True)
+    d=d[d['Clave'].ne('')]
+    last=d['Dia'].max()
+    first=d['Dia'].min()
+    if days: first=max(first,last-pd.Timedelta(days=days-1))
+    d=d[d['Dia']>=first]
+    calendar=pd.date_range(first,last,freq='D')
+    grouped=d.groupby(['Clave','Dia'],as_index=False)['Cantidad'].sum()
+    return d,calendar,grouped
+
+
+def _p_forecast_candidates(series, horizon, allow_advanced=True):
+    """Validación temporal holdout: no barajar fechas ni entrenar con el futuro."""
+    y=np.asarray(series,dtype=float)
+    n=len(y)
+    hold=max(3,min(21,n//5)) if n>=21 else 0
+    def forecast(name, train, steps):
+        train=np.asarray(train,dtype=float)
+        steps=int(steps)
+        if name=='Media móvil 7d':
+            return np.full(steps,max(0,float(np.mean(train[-min(7,len(train)):]))))
+        if name=='Media ponderada 28d':
+            s=train[-min(28,len(train)):]
+            w=np.arange(1,len(s)+1,dtype=float)
+            return np.full(steps,max(0,float(np.dot(s,w)/w.sum())))
+        if name=='Estacional semanal':
+            if len(train)<21: return np.full(steps,float(np.mean(train)))
+            return np.maximum(0,np.array([np.mean(train[max(0,len(train)-28):][np.arange(max(0,len(train)-28),len(train))%7==(len(train)+i)%7]) for i in range(steps)]))
+        if name=='Suavizamiento ETS':
+            from statsmodels.tsa.holtwinters import ExponentialSmoothing
+            seasonal='add' if len(train)>=42 else None
+            fit=ExponentialSmoothing(train,trend=None,seasonal=seasonal,seasonal_periods=7 if seasonal else None,
+                 initialization_method='estimated').fit(optimized=True)
+            return np.maximum(0,np.asarray(fit.forecast(steps),dtype=float))
+        if name=='StatsForecast AutoTheta':
+            from statsforecast import StatsForecast
+            from statsforecast.models import AutoTheta
+            df_sf=pd.DataFrame({'unique_id':'producto','ds':pd.date_range('2024-01-01',periods=len(train),freq='D'),'y':train})
+            model=StatsForecast(models=[AutoTheta(season_length=7)],freq='D',n_jobs=1)
+            out=model.forecast(df=df_sf,h=steps)
+            return np.maximum(0,out['AutoTheta'].to_numpy(dtype=float))
+        if name=='LightGBM':
+            import lightgbm as lgb
+            if len(train)<70: raise ValueError('historial insuficiente')
+            # Predicción recursiva: las características de rezago se generan exclusivamente
+            # con datos pasados y pronósticos ya generados.
+            def feats(arr,t):
+                return [arr[t-1],arr[t-7],np.mean(arr[t-7:t]),np.mean(arr[t-14:t]),
+                    np.std(arr[t-14:t]), t%7]
+            X=np.array([feats(train,t) for t in range(14,len(train))]); Y=train[14:]
+            m=lgb.LGBMRegressor(n_estimators=90,max_depth=3,num_leaves=7,learning_rate=.055,
+                 min_child_samples=12,verbosity=-1,random_state=42,n_jobs=1)
+            m.fit(X,Y)
+            history=list(train); out=[]
+            for _ in range(steps):
+                pred=max(0,float(m.predict(np.array(feats(np.asarray(history),len(history))).reshape(1,-1))[0]))
+                out.append(pred); history.append(pred)
+            return np.array(out)
+        raise ValueError(name)
+    candidates=['Media móvil 7d','Media ponderada 28d']
+    if n>=21: candidates.append('Estacional semanal')
+    if allow_advanced and n>=28: candidates.append('Suavizamiento ETS')
+    if allow_advanced and n>=42: candidates.append('StatsForecast AutoTheta')
+    if allow_advanced and n>=90: candidates.append('LightGBM')
+    scores=[]
+    for name in candidates:
+        try:
+            if hold:
+                pred=forecast(name,y[:-hold],hold)
+                mae=float(np.mean(np.abs(y[-hold:]-pred)))
+                bias=float(np.mean(pred-y[-hold:]))
+            else:
+                mae=np.nan; bias=np.nan
+            scores.append((name,mae,bias))
+        except Exception:
+            continue
+    if not scores: scores=[('Media móvil 7d',np.nan,np.nan)]
+    winner=min(scores,key=lambda v:v[1] if np.isfinite(v[1]) else 1e20)[0]
+    try: pred=forecast(winner,y,horizon)
+    except Exception: pred=np.full(horizon,float(np.mean(y[-min(7,n):])))
+    # Incertidumbre: aproximación empírica basada en error de validación temporal
+    # y dispersión diaria. No equivale a un intervalo calibrado de demanda.
+    best_mae=next((r[1] for r in scores if r[0]==winner),np.nan)
+    sigma=max(float(np.std(y[-min(n,56):])),float(best_mae)*1.253 if np.isfinite(best_mae) else 0,0.25)
+    widening=np.sqrt(1+np.arange(horizon)/7)
+    low=np.maximum(0,pred-1.645*sigma*widening)
+    high=np.maximum(pred,pred+1.645*sigma*widening)
+    return {'modelo':winner,'pronostico':pred,'inferior':low,'superior':high,'sigma':sigma,
+            'scores':pd.DataFrame(scores,columns=['Modelo','MAE validación','Sesgo validación']), 'holdout':hold}
+
+
+def _p_metrics(ventas, inv, window, lead, review, service, budget, min_history):
+    d,dates,grouped=_p_daily(ventas,window)
+    if d.empty: return pd.DataFrame(),dates,grouped
+    n=len(dates)
+    z=float(norm.ppf(service/100))
+    agg=d.groupby('Clave',as_index=False).agg(Producto=('PRODUCTO','first'),Categoria=('CATEGORÍA','first'),
+        Unidades=('Cantidad','sum'),Venta=('VentaTotal','sum'),CostoVenta=('CostoTotal','sum'),
+        UltimaVenta=('Dia','max'),DiasConVenta=('Dia','nunique'))
+    sums=grouped.groupby('Clave')['Cantidad'].agg(lambda x:float(np.sum(np.asarray(x,dtype=float)**2)))
+    agg['Demanda']=agg['Unidades']/max(1,n)
+    agg['Sigma']=np.sqrt((agg['Clave'].map(sums).fillna(0)/max(1,n)-agg['Demanda']**2).clip(lower=0))
+    agg['Margen']=agg['Venta']-agg['CostoVenta']
+    agg['MargenPct']=np.where(agg['Venta']>0,agg['Margen']/agg['Venta']*100,0)
+    agg=agg.merge(_p_inventory(inv),on='Clave',how='outer',indicator=True)
+    agg['Vinculado']=agg['_merge'].ne('left_only') & agg['Stock'].notna()
+    agg['Producto']=agg['Producto'].fillna(agg['ProductoInv']).fillna('Sin nombre')
+    for col in ['Unidades','Venta','CostoVenta','Margen','MargenPct','Demanda','Sigma','Stock','Capital','CostoUnitario','DiasConVenta']:
+        agg[col]=pd.to_numeric(agg[col],errors='coerce').fillna(0)
+    agg['UltimaVenta']=pd.to_datetime(agg['UltimaVenta'])
+    agg['DiasSinVenta']=(dates[-1]-agg['UltimaVenta']).dt.days if len(dates) else np.nan
+    agg['Cobertura']=np.where(agg['Demanda']>0,agg['Stock']/agg['Demanda'],np.nan)
+    agg['Seguridad']=np.ceil(z*agg['Sigma']*np.sqrt(max(1,lead)))
+    agg['PuntoPedido']=np.ceil(agg['Demanda']*lead+agg['Seguridad'])
+    agg['Objetivo']=np.ceil(agg['Demanda']*(lead+review)+agg['Seguridad'])
+    agg['Sugerencia']=np.maximum(0,agg['Objetivo']-agg['Stock']).astype(int)
+    agg.loc[(agg['Stock']>agg['PuntoPedido']) | (~agg['Vinculado']) | (agg['Demanda']<=0),'Sugerencia']=0
+    agg['Inversion']=agg['Sugerencia']*agg['CostoUnitario']
+    agg['Riesgo']=np.select([~agg['Vinculado'],(agg['Stock']<=0)&(agg['Demanda']>0),
+       (agg['Cobertura']<=lead)&(agg['Demanda']>0),agg['Stock']<=agg['PuntoPedido'],
+       agg['Cobertura']>60,(agg['Demanda']==0)&(agg['Stock']>0)],
+       ['Sin vínculo','Agotado','Quiebre probable','Reponer','Sobrestock','Sin ventas'],default='Adecuado')
+    agg['CapitalLento']=np.where(agg['Riesgo'].isin(['Sobrestock','Sin ventas']),agg['Capital'],0)
+    agg['Prioridad']=np.where(agg['Riesgo'].eq('Agotado'),5,np.where(agg['Riesgo'].eq('Quiebre probable'),4,
+       np.where(agg['Riesgo'].eq('Reponer'),3,0)))
+    agg['Prioridad']=agg['Prioridad']*(1+np.maximum(agg['MargenPct'],0)/100)
+    agg['Calidad']=np.where(n<min_history,'Historial corto',np.where(agg['DiasConVenta']<3,'Ventas esporádicas','Orientativa'))
+    return agg,dates,grouped
+
+
+def _p_scenario_plot(stock,forecast,lower,upper,dates,lead,point):
+    f=np.asarray(forecast)
+    expected=np.maximum(0,stock-np.cumsum(f))
+    optimistic=np.maximum(0,stock-np.cumsum(lower))
+    pessimistic=np.maximum(0,stock-np.cumsum(upper))
+    fig=go.Figure()
+    fig.add_trace(go.Scatter(x=list(dates)+list(dates[::-1]),y=list(optimistic)+list(pessimistic[::-1]),
+         fill='toself',fillcolor='rgba(39,119,188,.12)',line=dict(color='rgba(0,0,0,0)'),name='Escenarios bajo/alto'))
+    fig.add_trace(go.Scatter(x=dates,y=expected,name='Stock esperado',line=dict(color=_P_COLORS['blue'],width=3)))
+    fig.add_hline(y=point,line_dash='dot',line_color=_P_COLORS['red'],annotation_text='Punto de pedido')
+    if lead<len(dates): fig.add_vline(x=dates[lead].timestamp()*1000,line_dash='dash',line_color=_P_COLORS['green'])
+    _p_plot(fig,390)
+
+
+def _p_excel(sheets):
+    output=io.BytesIO()
+    with pd.ExcelWriter(output,engine='openpyxl') as writer:
+        for name,data in sheets.items():
+            safe=data.copy().replace([np.inf,-np.inf],np.nan)
+            for c in safe.columns:
+                if pd.api.types.is_datetime64_any_dtype(safe[c]):
+                    safe[c]=safe[c].dt.tz_localize(None) if getattr(safe[c].dt,'tz',None) else safe[c]
+            safe.to_excel(writer,sheet_name=name[:31],index=False)
+    return output.getvalue()
+
+
+def pantalla_stock_intelligence():
+    header('Premium Stock Intelligence','Pronósticos de demanda, quiebres, reposición y capital de trabajo')
+    if str(st.session_state.usuario.get('Rol','')).upper()!='ADMIN':
+        st.error('Acceso exclusivo para administración.');return
+    try:
+        raw=cargar_ventas(); ventas=preparar_ventas(raw); inventario=cargar_inventario()
+    except Exception as exc:
+        st.error(f'No se pudieron cargar ventas o inventario: {exc}');return
+    if ventas.empty:
+        st.warning('No hay ventas disponibles. Usa la pestaña Cargar ventas para incorporar el histórico.')
+        with st.expander('Importación de ventas'):
+            st.info('Utiliza el menú anterior de carga o pega tus 25 columnas en VentasProductos.')
+        return
+    if (~ventas['CantidadValida']).any():
+        st.error(f"Hay {int((~ventas['CantidadValida']).sum())} líneas con CANTIDAD inválida. Corrige la hoja para evitar predicciones incorrectas.")
+        return
+    st.markdown('''<style>
+    div[data-testid="stMetric"] {background:#fff;border:1px solid #E5EAF1;border-left:4px solid #00A959;padding:14px;border-radius:13px;}
+    div[data-testid="stMetricLabel"] {color:#64748B;}
+    </style>''',unsafe_allow_html=True)
+    tab1,tab2,tab3,tab4,tab5=st.tabs(['📊 Centro ejecutivo','🔎 Laboratorio por producto','🛒 Optimizar compras','🚨 Alertas y calidad','📥 Importar ventas'])
+    with st.sidebar.expander('⚙️ Parámetros de abastecimiento',expanded=False):
+        st.caption('Parámetros generales; ajustar según cada proveedor cuando tengas sus plazos.')
+        window=st.selectbox('Ventana de ventas (días)',[30,60,90,180,365],index=2,key='psi_window')
+        lead=st.number_input('Plazo proveedor (días)',1,90,3,key='psi_lead')
+        review=st.number_input('Cobertura adicional tras entrega (días)',1,90,7,key='psi_review')
+        service=st.selectbox('Nivel de servicio (%)',[90,95,97,98,99],index=1,key='psi_service')
+        budget=st.number_input('Presupuesto de compra (S/)',min_value=0.0,value=2000.0,step=100.0,key='psi_budget')
+    summary,dates,grouped=_p_metrics(ventas,inventario,int(window),int(lead),int(review),int(service),budget,28)
+    if summary.empty: st.info('Sin registros de ventas utilizables.');return
+    last=ventas['Dia'].max(); first=ventas['Dia'].min(); span=(last-first).days+1
+    coverage_days=ventas['Dia'].nunique()
+    if coverage_days<span:
+        st.warning(f'Hay {span-coverage_days} días sin ventas registradas en el historial completo. Confirma si son días sin actividad o faltan cargas: afectan los pronósticos.')
+    if (pd.Timestamp.today().normalize()-last).days>2:
+        st.warning(f'La última fecha de venta es {last:%d/%m/%Y}; actualiza los registros antes de comprar.')
+    if len(dates)<28:
+        st.info('Historial inferior a 28 días: los resultados son exploratorios. Con 3–12 meses podremos validar estacionalidad y modelos avanzados.')
+    if (~summary['Vinculado']).any():
+        st.warning(f"{int((~summary['Vinculado']).sum())} códigos vendidos no se vinculan con Inventario; no se sugieren compras para ellos.")
+    with tab1:
+        st.markdown('### Centro de control comercial')
+        k=st.columns(5)
+        k[0].metric('Productos con ventas',f"{int((summary['Unidades']>0).sum()):,}")
+        k[1].metric('Riesgo de quiebre',f"{int(summary['Riesgo'].isin(['Agotado','Quiebre probable']).sum()):,}")
+        k[2].metric('Compra calculada',formato_soles(summary['Inversion'].sum()))
+        k[3].metric('Capital de baja rotación',formato_soles(summary['CapitalLento'].sum()))
+        k[4].metric('Unidades vendidas',f"{summary['Unidades'].sum():,.0f}")
+        st.caption('La compra calculada no descuenta pedidos en tránsito ni contempla restricciones de proveedor; validar antes de ordenar.')
+        c1,c2=st.columns([1.5,1])
+        with c1:
+            st.markdown('**Evolución diaria de ventas y unidades**')
+            daily=ventas.groupby('Dia',as_index=False).agg(Unidades=('Cantidad','sum'),Ventas=('VentaTotal','sum'))
+            fig=make_subplots(specs=[[{'secondary_y':True}]])
+            fig.add_trace(go.Bar(x=daily['Dia'],y=daily['Ventas'],name='Ventas S/',marker_color='#00A959'),secondary_y=False)
+            fig.add_trace(go.Scatter(x=daily['Dia'],y=daily['Unidades'],name='Unidades',line=dict(color='#EC3237',width=2)),secondary_y=True)
+            fig.update_yaxes(title_text='Soles',secondary_y=False);fig.update_yaxes(title_text='Unidades',secondary_y=True)
+            _p_plot(fig,365)
+        with c2:
+            st.markdown('**Diagnóstico del portafolio**')
+            counts=summary['Riesgo'].value_counts().reset_index();counts.columns=['Estado','Productos']
+            fig=px.pie(counts,names='Estado',values='Productos',hole=.63,color_discrete_sequence=['#00A959','#EC3237','#2777BC','#F1AE39','#A5B4C8'])
+            fig.update_traces(textposition='outside',textinfo='percent+label')
+            _p_plot(fig,365)
+        st.markdown('### Ranking de mayor rotación')
+        top=summary[summary['Unidades']>0].nlargest(20,'Unidades').sort_values('Unidades')
+        fig=go.Figure(go.Bar(x=top['Unidades'],y=top['Producto'].str.slice(0,38),orientation='h',marker_color='#00A959',customdata=top['Clave'],hovertemplate='%{y}<br>%{x:.0f} unidades<br>Código %{customdata}<extra></extra>'))
+        _p_plot(fig,max(360,len(top)*26))
+        st.dataframe(summary.nlargest(30,'Unidades')[['Producto','Clave','Unidades','Demanda','Stock','Cobertura','Margen','Riesgo']],hide_index=True,use_container_width=True)
+    with tab2:
+        st.markdown('### Laboratorio de predicción por producto')
+        search=st.text_input('Buscar nombre, código de barras o SKU',placeholder='Ej.: Coca Cola, Sporade, 775...',key='psi_search')
+        options=summary[summary['Unidades']>0].copy()
+        if search.strip():
+            pattern=re.escape(search.strip())
+            options=options[options['Producto'].str.contains(pattern,case=False,na=False,regex=True)|options['Clave'].str.contains(pattern,case=False,na=False,regex=True)]
+        if options.empty: st.info('No se encontraron productos con ventas en la ventana seleccionada.')
+        else:
+            options=options.sort_values('Unidades',ascending=False)
+            labels={str(r.Clave):f'{r.Producto} · {r.Clave}' for r in options.itertuples()}
+            selected=st.selectbox('Producto',list(labels),format_func=lambda c:labels[c],key='psi_selected')
+            item=summary.loc[summary['Clave'].eq(selected)].iloc[0]
+            serie=grouped[grouped['Clave'].eq(selected)].set_index('Dia')['Cantidad'].reindex(dates,fill_value=0).astype(float)
+            horizon=st.slider('Horizonte de predicción (días)',7,60,30,7,key='psi_horizon')
+            result=_p_forecast_candidates(serie.values,horizon,allow_advanced=True)
+            k=st.columns(6)
+            k[0].metric('Stock actual',f"{item['Stock']:,.0f}" if item['Vinculado'] else 'Sin vínculo')
+            k[1].metric('Demanda diaria',f"{item['Demanda']:.2f} und")
+            k[2].metric('Cobertura',f"{item['Cobertura']:.1f} días" if np.isfinite(item['Cobertura']) else 'Sin ventas')
+            k[3].metric('Stock seguridad',f"{item['Seguridad']:.0f} und")
+            k[4].metric('Punto de pedido',f"{item['PuntoPedido']:.0f} und")
+            k[5].metric('Compra sugerida',f"{item['Sugerencia']:.0f} und" if item['Vinculado'] else 'No disponible')
+            st.caption(f"Modelo elegido por validación temporal: **{result['modelo']}** · {result['holdout']} días de prueba fuera del entrenamiento. Las bandas son escenarios aproximados, no intervalos calibrados.")
+            left,right=st.columns([1.25,1])
+            with left:
+                st.markdown('**Histórico y pronóstico de unidades por día**')
+                future=pd.date_range(dates[-1]+pd.Timedelta(days=1),periods=horizon,freq='D')
+                fig=go.Figure()
+                fig.add_trace(go.Bar(x=serie.index,y=serie.values,name='Venta real',marker_color='#A8D9C1'))
+                fig.add_trace(go.Scatter(x=list(future)+list(future[::-1]),y=list(result['superior'])+list(result['inferior'][::-1]),fill='toself',fillcolor='rgba(39,119,188,.12)',line=dict(color='rgba(0,0,0,0)'),name='Escenario de variación'))
+                fig.add_trace(go.Scatter(x=future,y=result['pronostico'],name='Pronóstico',line=dict(color='#2777BC',width=3)))
+                _p_plot(fig,380)
+            with right:
+                st.markdown('**Demanda según día de la semana**')
+                week=pd.DataFrame({'dia':serie.index.dayofweek,'qty':serie.values}).groupby('dia')['qty'].mean().reindex(range(7),fill_value=0)
+                fig=go.Figure(go.Bar(x=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'],y=week.values,marker_color='#00A959'))
+                _p_plot(fig,380)
+            st.markdown('**Proyección de agotamiento sin nuevas compras**')
+            if item['Vinculado']:
+                _p_scenario_plot(float(item['Stock']),result['pronostico'],result['inferior'],result['superior'],future,int(lead),float(item['PuntoPedido']))
+                cum=np.cumsum(result['pronostico']); hits=np.where(cum>=float(item['Stock']))[0]
+                if len(hits): st.error(f"Bajo el escenario central, el stock se agotaría aproximadamente el {future[hits[0]]:%d/%m/%Y} si no se repone.")
+                else: st.success(f'No se proyecta agotamiento en los próximos {horizon} días bajo el escenario central.')
+            st.markdown('**Comparación de modelos · evaluación sobre días no utilizados en entrenamiento**')
+            st.dataframe(result['scores'].sort_values('MAE validación'),hide_index=True,use_container_width=True)
+            if result['holdout']==0: st.warning('Historial insuficiente para una comparación de modelos fuera de muestra.')
+            st.caption('Los quiebres históricos de stock pueden ocultar demanda no atendida. Sin historial de existencias diarias no podemos corregir ese sesgo con seguridad.')
+    with tab3:
+        st.markdown('### Optimizador de compras y capital')
+        st.caption('Prioriza urgencia de quiebre y margen. El presupuesto no garantiza un óptimo global; es una selección heurística auditable.')
+        urgent=summary[(summary['Sugerencia']>0)&summary['Vinculado']].sort_values(['Prioridad','Margen','Inversion'],ascending=[False,False,True]).copy()
+        balance=float(budget);selected=[]
+        for r in urgent.itertuples():
+            if r.CostoUnitario<=0: continue
+            units=min(int(r.Sugerencia),int(balance//r.CostoUnitario))
+            if units>0:
+                selected.append((r.Clave,units,units*r.CostoUnitario));balance-=units*r.CostoUnitario
+        plan=pd.DataFrame(selected,columns=['Clave','Unidades presupuesto','Inversión presupuesto'])
+        plan=urgent.merge(plan,on='Clave',how='left') if not urgent.empty else urgent.copy()
+        if not plan.empty:
+            plan['Unidades presupuesto']=plan['Unidades presupuesto'].fillna(0).astype(int)
+            plan['Inversión presupuesto']=plan['Inversión presupuesto'].fillna(0)
+        a,b,c=st.columns(3)
+        a.metric('Presupuesto',formato_soles(budget));b.metric('Inversión seleccionada',formato_soles(budget-balance));c.metric('Productos priorizados',len(selected))
+        if not plan.empty:
+            st.dataframe(plan[['Producto','Clave','Riesgo','Stock','Demanda','Cobertura','Seguridad','PuntoPedido','Sugerencia','Unidades presupuesto','Inversión presupuesto','MargenPct']],hide_index=True,use_container_width=True)
+        st.markdown('### Capital inmovilizado')
+        slow=summary[(summary['CapitalLento']>0)&summary['Vinculado']].sort_values('CapitalLento',ascending=False)
+        if slow.empty: st.success('Sin referencias clasificadas con capital lento en esta ventana.')
+        else:
+            st.metric('Capital sujeto a revisión',formato_soles(slow['CapitalLento'].sum()))
+            st.dataframe(slow[['Producto','Clave','Stock','Capital','Demanda','Cobertura','DiasSinVenta','Riesgo']],hide_index=True,use_container_width=True)
+        st.download_button('📥 Exportar plan de compras y capital (Excel)',_p_excel({'Compras':plan,'Capital lento':slow,'Diagnostico':summary}),file_name='Premium_Stock_Intelligence_Compras.xlsx',mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',use_container_width=True)
+    with tab4:
+        st.markdown('### Centro de alertas inteligentes')
+        risk=summary[summary['Riesgo'].isin(['Agotado','Quiebre probable','Reponer','Sobrestock','Sin ventas','Sin vínculo'])].copy()
+        recent=ventas[ventas['Dia']>=last-pd.Timedelta(days=6)].groupby('Clave')['Cantidad'].sum()
+        previous=ventas[(ventas['Dia']<last-pd.Timedelta(days=6))&(ventas['Dia']>=last-pd.Timedelta(days=34))].groupby('Clave')['Cantidad'].sum()
+        summary['Venta7d']=summary['Clave'].map(recent).fillna(0)
+        summary['Media7dAnterior']=summary['Clave'].map(previous).fillna(0)/4
+        spikes=summary[(summary['Venta7d']>=5)&(summary['Media7dAnterior']>0)&(summary['Venta7d']>summary['Media7dAnterior']*1.8)]
+        k=st.columns(4)
+        k[0].metric('Sin stock',int((summary['Riesgo']=='Agotado').sum()))
+        k[1].metric('Quiebre probable',int((summary['Riesgo']=='Quiebre probable').sum()))
+        k[2].metric('Sobrestock o sin ventas',int(summary['Riesgo'].isin(['Sobrestock','Sin ventas']).sum()))
+        k[3].metric('Picos de demanda',len(spikes))
+        st.dataframe(risk[['Producto','Clave','Riesgo','Stock','Demanda','Cobertura','PuntoPedido','Capital']],hide_index=True,use_container_width=True)
+        if len(spikes):
+            st.markdown('**Demanda inusualmente alta · alerta heurística**')
+            st.dataframe(spikes[['Producto','Clave','Venta7d','Media7dAnterior','Stock']],hide_index=True,use_container_width=True)
+        st.markdown('### Integridad de datos')
+        st.write(f"Historial: **{first:%d/%m/%Y} – {last:%d/%m/%Y}** · **{span}** días calendario · **{coverage_days}** días con ventas registradas · **{len(ventas):,}** líneas")
+        st.write(f"Productos vendidos sin correspondencia: **{int((~summary['Vinculado'] & (summary['Unidades']>0)).sum())}**")
+        st.info('No se dispone de existencias históricas, compras en tránsito ni plazos de entrega por proveedor. El stock actual proviene de Inventario y puede diferir del físico; las recomendaciones son para revisión humana.')
+        st.download_button('📥 Descargar diagnóstico Excel',_p_excel({'Productos':summary,'Alertas':risk,'Picos demanda':spikes}),file_name='Premium_Stock_Intelligence_Alertas.xlsx',mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    with tab5:
+        st.markdown('### Carga histórica y diaria de ventas')
+        st.info('Se admiten varios meses o todo 2026. La hoja VentasProductos conserva los 25 encabezados originales. El sistema añade solo filas no importadas de cada exportación.')
+        archivo=st.file_uploader('Excel del sistema de ventas (.xlsx)',type=['xlsx'],key='psi_upload')
+        if archivo:
+            try:
+                nuevo=_leer_reporte_excel(archivo)
+                st.write(f'Filas detectadas: {len(nuevo):,}')
+                st.dataframe(nuevo.head(8),hide_index=True,use_container_width=True)
+                if st.button('Agregar registros nuevos a VentasProductos',type='primary',key='psi_import'):
+                    ws=hoja_ventas();existing=cargar_ventas()
+                    cols=['FECHA/HORA','COMPROBANTE','CÓDIGO DE BARRA','PRODUCTO','SKU','COSTO*','PRECIO PROMEDIO','CANTIDAD','TOTAL']
+                    def occurrences(frame):
+                        if frame.empty:return []
+                        b=frame[cols].fillna('').astype(str).apply(lambda r:'\x1f'.join(r),axis=1)
+                        return list(zip(b,b.groupby(b).cumcount()))
+                    seen=set(occurrences(existing));keys=occurrences(nuevo)
+                    rows=[list(r) for i,r in enumerate(nuevo.itertuples(index=False,name=None)) if keys[i] not in seen]
+                    if rows:ws.append_rows(rows,value_input_option='RAW')
+                    cargar_ventas.clear();registrar_auditoria('IMPORTACION_VENTAS',f'{len(rows)} filas; {archivo.name}')
+                    st.success(f'{len(rows)} filas agregadas; {len(nuevo)-len(rows)} ya existentes. Actualiza la vista para recalcular.')
+            except Exception as exc: st.error(f'No se pudo procesar el archivo: {exc}')
+
+
 def pantalla_seguridad_y_respaldo():
     header("Seguridad y respaldos", "Resguardo de datos y control de accesos")
     if str(st.session_state.usuario.get("Rol", "")).upper() != "ADMIN":
@@ -3975,7 +4358,7 @@ try:
     elif pagina == "Análisis":
         pantalla_analisis()
     elif pagina == "Compras Inteligentes":
-        pantalla_compras_inteligentes()
+        pantalla_stock_intelligence()
     elif pagina == "Seguridad y respaldos":
         pantalla_seguridad_y_respaldo()
     elif pagina == "Administración":
