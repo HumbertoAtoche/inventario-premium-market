@@ -3683,39 +3683,122 @@ def pantalla_compras_inteligentes():
                 st.dataframe(ventas.loc[~ventas["CantidadValida"], ["FECHA/HORA", "COMPROBANTE", "PRODUCTO", "CANTIDAD"]].head(100),use_container_width=True,hide_index=True)
     with tab1:
         if not n:
-            st.info("Primero importa el reporte en Cargar ventas o pega las ventas en Google Sheets.")
+            st.info("Primero carga ventas en la hoja VentasProductos o importa el Excel desde la pestaña Cargar ventas.")
             return
-        k1,k2,k3=st.columns(3)
-        k1.metric("Registros",f"{n:,}")
-        k2.metric("Productos vendidos",f"{ventas['Clave'].nunique():,}")
-        k3.metric("Días registrados",f"{ventas['Dia'].nunique():,}")
         if sin_cantidad:
-            st.warning(f"Hay {sin_cantidad:,} registros sin cantidad vendida confiable. Se muestra el ranking de frecuencia, pero se bloquean las recomendaciones numéricas de compra para evitar pedidos incorrectos.")
-            frecuencia=ventas.groupby(["Clave","PRODUCTO"],as_index=False).size().rename(columns={"size":"Líneas de venta"}).sort_values("Líneas de venta",ascending=False)
-            st.dataframe(frecuencia.head(100),use_container_width=True,hide_index=True)
-            st.download_button("Descargar frecuencia (Excel)",exportar_excel({"Frecuencia":frecuencia}),file_name="frecuencia_ventas.xlsx",mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            st.error(f"Hay {sin_cantidad:,} líneas sin CANTIDAD válida. Corrige esos registros antes de generar recomendaciones de compra.")
+            st.dataframe(ventas.loc[~ventas["CantidadValida"], ["FECHA/HORA", "PRODUCTO", "CANTIDAD"]].head(80), hide_index=True, use_container_width=True)
             return
+
+        fecha_ultima = ventas["Dia"].max()
+        fecha_primera = ventas["Dia"].min()
+        dias_periodo = (fecha_ultima - fecha_primera).days + 1
+        dias_con_ventas = ventas["Dia"].nunique()
+        st.markdown("### Panel ejecutivo de abastecimiento")
+        if dias_con_ventas < dias_periodo:
+            st.warning(f"Hay {dias_periodo - dias_con_ventas} días sin registros entre {fecha_primera:%d/%m/%Y} y {fecha_ultima:%d/%m/%Y}. Verifica que las ventas diarias estén completas: los días ausentes reducen las estimaciones.")
+        if (pd.Timestamp.today().normalize() - fecha_ultima).days > 2:
+            st.warning(f"Última venta cargada: {fecha_ultima:%d/%m/%Y}. Actualiza la hoja antes de tomar decisiones de compra.")
+
         c1,c2,c3,c4=st.columns(4)
-        ventana=c1.selectbox("Ventana de demanda (días)",[7,14,30,60,90],index=2)
-        entrega=c2.number_input("Plazo proveedor (días)",min_value=1,max_value=90,value=3)
-        seguridad=c3.number_input("Días de colchón",min_value=0,max_value=60,value=4)
-        servicio=c4.selectbox("Nivel de servicio",[90,95,98,99],index=1)
-        st.caption("Parámetros generales iniciales. En una versión posterior se podrán configurar por proveedor y producto.")
+        ventana=c1.selectbox("Histórico de demanda",[7,14,30,60,90],index=2,format_func=lambda v:f"Últimos {v} días",key="ci_ventana")
+        entrega=c2.number_input("Entrega proveedor · días",min_value=1,max_value=90,value=3,key="ci_entrega")
+        seguridad=c3.number_input("Colchón · días",min_value=0,max_value=60,value=4,key="ci_colchon")
+        servicio=c4.selectbox("Nivel de servicio",[90,95,98,99],index=1,format_func=lambda v:f"{v}%",key="ci_servicio")
         inventario=cargar_inventario()
         resumen=resumen_demanda(ventas,inventario,int(entrega),int(seguridad),int(ventana),int(servicio))
         if resumen.empty:
-            st.info("No hay ventas válidas en la ventana seleccionada.")
+            st.info("No hay ventas válidas en el período.")
             return
         if (~resumen["VinculadoInventario"]).any():
-            st.warning(f"{int((~resumen['VinculadoInventario']).sum())} productos vendidos no se vincularon al inventario por código de barras/SKU. No se sugieren compras para ellos hasta revisar la correspondencia.")
-        st.warning("Proyección orientativa: confirma que cada día esté cargado. CANTIDAD representa las unidades vendidas; CANTIDAD EQUIVALENCIA no se usa como cantidad base. Los días sin registro se consideran dentro del período; si faltan exportaciones, la demanda quedará subestimada.")
-        c1,c2,c3=st.columns(3)
-        c1.metric("Productos a revisar",int((resumen["CompraSugerida"]>0).sum()))
-        c2.metric("Sin stock",int((resumen["StockActual"]<=0).sum()))
-        c3.metric("Inversión sugerida",formato_soles(resumen["InversionSugerida"].sum()))
-        ver=resumen[["Producto","Categoria","Unidades","VentaTotal","CostoTotal","MargenTotal","MargenPorcentaje","DemandaDiaria","StockActual","DiasCobertura","PuntoPedido","StockSeguridad","StockObjetivo","CompraSugerida","InversionSugerida","Estado"]].copy()
-        st.dataframe(ver,use_container_width=True,hide_index=True)
-        st.download_button("Descargar plan de reposición (Excel)",exportar_excel({"Reposicion":ver}),file_name="plan_reposicion.xlsx",mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            st.warning(f"{int((~resumen['VinculadoInventario']).sum())} productos vendidos no coinciden con el inventario por código de barras/SKU. No se recomienda compra para ellos.")
+        st.caption("El stock mostrado procede de la hoja Inventario (stock registrado), no de una lectura física en tiempo real. Las recomendaciones son orientativas y requieren validar existencias, compras en tránsito y tiempos de proveedor.")
+        k1,k2,k3,k4=st.columns(4)
+        k1.metric("Productos vendidos",f"{resumen['Clave'].nunique():,}")
+        k2.metric("Unidades · período",f"{resumen['Unidades'].sum():,.0f}")
+        k3.metric("En riesgo de reposición",f"{int(((resumen['CompraSugerida']>0)&resumen['VinculadoInventario']).sum()):,}")
+        k4.metric("Compra orientativa",formato_soles(resumen["InversionSugerida"].sum()))
+
+        st.divider()
+        st.markdown("### Explorador de productos")
+        st.caption("Busca por nombre, código de barras o SKU. Las gráficas se calculan con CANTIDAD, agregada por día.")
+        buscar=st.text_input("Buscar producto",placeholder="Ej.: Coca Cola, Sporade, 775...",key="ci_buscar")
+        opciones=resumen.copy()
+        if buscar.strip():
+            patron=re.escape(buscar.strip())
+            opciones=opciones[opciones["Producto"].astype(str).str.contains(patron,case=False,na=False,regex=True)|opciones["Clave"].astype(str).str.contains(patron,case=False,na=False,regex=True)]
+        if opciones.empty:
+            st.info("No hay productos vendidos que coincidan con la búsqueda en el período elegido.")
+        else:
+            opciones=opciones.sort_values("Unidades",ascending=False)
+            etiquetas={str(r.Clave):f"{r.Producto}  ·  {r.Clave}" for r in opciones.itertuples()}
+            clave=st.selectbox("Producto a analizar",list(etiquetas),format_func=lambda k:etiquetas[k],key="ci_producto")
+            p=resumen[resumen["Clave"].astype(str)==clave].iloc[0]
+            pc1,pc2,pc3,pc4,pc5=st.columns(5)
+            pc1.metric("Stock registrado",f"{p['StockActual']:,.0f}" if p["VinculadoInventario"] else "Sin vínculo")
+            pc2.metric("Demanda diaria",f"{p['DemandaDiaria']:.2f} und")
+            pc3.metric("Cobertura actual",f"{p['DiasCobertura']:.1f} días" if pd.notna(p["DiasCobertura"]) else "—")
+            pc4.metric("Punto de pedido",f"{p['PuntoPedido']:,.0f} und")
+            pc5.metric("Compra sugerida",f"{p['CompraSugerida']:,.0f} und" if p["VinculadoInventario"] else "No disponible")
+            st.markdown(f"**Estado:** {p['Estado']}  ·  **Stock de seguridad:** {p['StockSeguridad']:,.0f} und  ·  **Stock objetivo:** {p['StockObjetivo']:,.0f} und")
+            periodo_inicio=fecha_ultima-pd.Timedelta(days=int(ventana)-1)
+            fechas=pd.date_range(max(fecha_primera,periodo_inicio),fecha_ultima,freq="D")
+            vprod=ventas[(ventas["Clave"].astype(str)==clave)&(ventas["Dia"]>=fechas.min())].copy()
+            serie=vprod.groupby("Dia")["Cantidad"].sum().reindex(fechas,fill_value=0)
+            serie.index.name="Día"
+            izq,der=st.columns([1.5,1])
+            with izq:
+                st.markdown("**Ventas diarias · unidades**")
+                st.bar_chart(serie.rename("Unidades vendidas"),color="#00A959",use_container_width=True)
+            with der:
+                st.markdown("**Proyección de existencias**")
+                horizonte=max(14,int(entrega)+int(seguridad)+7)
+                dias=list(range(horizonte+1))
+                proy=pd.DataFrame({"Día":dias,"Stock proyectado sin reposición":[max(0,float(p["StockActual"])-float(p["DemandaDiaria"])*d) for d in dias],"Punto de pedido":[float(p["PuntoPedido"])]*len(dias)}).set_index("Día")
+                st.line_chart(proy,use_container_width=True)
+                st.caption("Escenario lineal con demanda promedio constante; no descuenta pedidos en tránsito ni predice cambios de temporada.")
+            v1,v2,v3=st.columns(3)
+            v1.metric("Ventas del producto",formato_soles(p["VentaTotal"]))
+            v2.metric("Margen bruto",formato_soles(p["MargenTotal"]))
+            v3.metric("Inversión estimada",formato_soles(p["InversionSugerida"]))
+
+        st.divider()
+        st.markdown("### Productos de mayor rotación")
+        st.caption("Ranking por unidades vendidas en el período. Los productos con distinta presentación o código se muestran por separado.")
+        top=resumen.sort_values("Unidades",ascending=False).head(15).copy()
+        top["Etiqueta"]=(top["Producto"].astype(str).str.slice(0,36)+" · "+top["Clave"].astype(str).str.slice(-6))
+        top_graf=top.set_index("Etiqueta")["Unidades"].sort_values()
+        st.bar_chart(top_graf,color="#EC3237",horizontal=True,use_container_width=True)
+        st.dataframe(top[["Producto","Clave","Unidades","DemandaDiaria","StockActual","DiasCobertura","VentaTotal","MargenTotal","Estado"]],hide_index=True,use_container_width=True)
+
+        st.divider()
+        st.markdown("### Prioridades de compra y capital inmovilizado")
+        t1,t2,t3=st.tabs(["Reponer ahora","Baja rotación y sobrestock","Plan completo"])
+        with t1:
+            urg=resumen[(resumen["VinculadoInventario"])&(resumen["CompraSugerida"]>0)].sort_values(["DiasCobertura","InversionSugerida"],ascending=[True,False])
+            st.dataframe(urg[["Producto","Clave","StockActual","DemandaDiaria","DiasCobertura","PuntoPedido","CompraSugerida","CostoUnitario","InversionSugerida","Estado"]],hide_index=True,use_container_width=True)
+            st.caption("Revisa manualmente cada propuesta antes de emitir una orden de compra.")
+        with t2:
+            st.caption("Productos del catálogo sin ventas en la ventana o con cobertura elevada. No se asume que no hayan vendido históricamente.")
+            inv=inventario.copy()
+            inv["Clave"] = inv["CodigoBarras"].astype(str).str.strip()
+            inv["Clave"] = inv["Clave"].where(inv["Clave"]!="",inv["CodigoProducto"].astype(str).str.strip())
+            invg=inv.groupby("Clave",as_index=False).agg(Producto=("Producto","first"),StockActual=("StockSistema","sum"),CostoUnitario=("CostoUnitario","mean"))
+            invg=invg.merge(resumen[["Clave","DemandaDiaria","DiasCobertura","Unidades"]],on="Clave",how="left")
+            invg["ValorStock"]=invg["StockActual"].clip(lower=0)*invg["CostoUnitario"].fillna(0)
+            invg["Diagnostico"]="Revisar"
+            invg.loc[invg["Unidades"].isna(),"Diagnostico"]="Sin ventas en ventana"
+            invg.loc[invg["DiasCobertura"]>60,"Diagnostico"]="Cobertura mayor a 60 días"
+            lentos=invg[(invg["StockActual"]>0)&(invg["Diagnostico"]!="Revisar")].sort_values("ValorStock",ascending=False)
+            a1,a2=st.columns(2)
+            a1.metric("Referencias para revisar",f"{len(lentos):,}")
+            a2.metric("Capital a costo en revisión",formato_soles(lentos["ValorStock"].sum()))
+            st.dataframe(lentos[["Producto","Clave","StockActual","Unidades","DiasCobertura","CostoUnitario","ValorStock","Diagnostico"]],hide_index=True,use_container_width=True)
+            st.caption("Antes de reducir compras verifica estacionalidad, productos nuevos y días faltantes en el histórico.")
+        with t3:
+            columnas=["Producto","Clave","Categoria","Unidades","VentaTotal","CostoTotal","MargenTotal","MargenPorcentaje","DemandaDiaria","StockActual","DiasCobertura","PuntoPedido","StockSeguridad","StockObjetivo","CompraSugerida","InversionSugerida","Estado"]
+            st.dataframe(resumen[columnas],hide_index=True,use_container_width=True)
+            st.download_button("Descargar análisis de compras (Excel)",exportar_excel({"Plan de compras":resumen[columnas],"Top rotacion":top[["Producto","Clave","Unidades","DemandaDiaria","VentaTotal"]],"Capital inmovilizado":lentos if 'lentos' in locals() else pd.DataFrame()}),file_name="compras_inteligentes_premium.xlsx",mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",use_container_width=True)
 
 
 def pantalla_seguridad_y_respaldo():
