@@ -4101,7 +4101,22 @@ def _psi_manager_purchase_view(summary, dates, grouped, ventas, lead, service):
 def pantalla_stock_intelligence():
     """Una sola pantalla de decisión: qué comprar, cuánto y por qué."""
     from zoneinfo import ZoneInfo
-    header('Compras Inteligentes', 'Qué comprar, cuánto invertir y hasta cuándo durará el stock')
+    header('Plan de Compras | Tiendas Premium', 'Decisiones de abastecimiento basadas en stock disponible y comportamiento de ventas')
+    st.markdown('''<style>
+    .psi-executive {background:#fff;border:1px solid #e0e7ef;border-left:4px solid #EC3237;border-radius:12px;padding:19px 22px;margin:10px 0 18px;box-shadow:0 4px 18px rgba(23,40,67,.035)}
+    .psi-executive h3 {font-size:1.04rem;color:#172a44;margin:0 0 7px;font-weight:750}
+    .psi-executive p {font-size:.94rem;color:#465872;line-height:1.6;margin:0}
+    .psi-eyebrow {color:#75869e;font-size:.72rem;font-weight:800;letter-spacing:.085em;text-transform:uppercase;margin:12px 0 8px}
+    .psi-section {display:flex;align-items:center;gap:10px;margin:20px 0 12px;color:#172a44;font-size:1.07rem;font-weight:750}
+    .psi-section .psi-index {display:inline-grid;place-items:center;width:27px;height:27px;border-radius:7px;background:#fff0f0;color:#d72e35;font-size:.83rem}
+    .psi-smallnote {color:#78889c;font-size:.83rem;margin:0 0 10px}
+    [data-testid="stMetric"] {border-top:3px solid #00A959!important;border-radius:12px!important;padding:16px 19px!important;box-shadow:0 3px 12px rgba(22,42,68,.035)}
+    [data-testid="stMetricLabel"] {color:#6b7c93!important}
+    [data-testid="stMetricValue"] {font-size:1.8rem!important;font-weight:750!important;color:#1a304c!important}
+    [data-testid="stDataFrame"] {border:1px solid #e1e7ee!important;border-radius:10px!important}
+    div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stAlert"]) {border-radius:10px}
+    @media(max-width:700px) { .psi-executive {padding:15px} [data-testid="stMetricValue"] {font-size:1.35rem!important} }
+    </style>''',unsafe_allow_html=True)
     if str(st.session_state.usuario.get('Rol','')).upper()!='ADMIN':
         st.error('Acceso exclusivo para administración.'); return
     try:
@@ -4117,7 +4132,7 @@ def pantalla_stock_intelligence():
         today=pd.Timestamp.now(tz=ZoneInfo('America/Lima')).normalize().tz_localize(None)
         last=ventas['Dia'].max()
         default_arrival=today+pd.Timedelta(days=(5-today.weekday())%7)
-        st.markdown('### 1. Prepara tu pedido')
+        st.markdown('<div class="psi-section"><span class="psi-index">01</span> Configura el abastecimiento</div>',unsafe_allow_html=True)
         c1,c2,c3=st.columns([1.1,1,1])
         with c1: arrival=st.date_input('¿Cuándo llegará?',value=default_arrival.date(),min_value=today.date(),key='psi_simple_arrival')
         with c2: duration=st.selectbox('¿Para cuántos días?',options=[7,14,21,30],index=1,format_func=lambda x:f'{x} días desde la llegada',key='psi_simple_days')
@@ -4179,14 +4194,24 @@ def pantalla_stock_intelligence():
                 plan['_orden']=plan['Prioridad'].map(order)
                 plan=plan.sort_values(['_orden','Comprar'],ascending=[True,False]).drop(columns='_orden')
                 buy=plan[plan['Comprar']>0]
-                st.markdown('### 2. Tu decisión de compra')
+                st.markdown('<div class="psi-section"><span class="psi-index">02</span> Resumen ejecutivo</div>',unsafe_allow_html=True)
                 k1,k2,k3=st.columns(3)
                 k1.metric('Productos a comprar',f'{len(buy):,}')
                 k2.metric('Unidades a pedir',f"{int(buy['Comprar'].sum()):,}")
                 k3.metric('Inversión estimada',formato_soles(buy['Inversión S/'].sum()))
                 urgent=int((plan['Prioridad']=='Urgente').sum())
-                st.markdown(f'**Recomendación:** para cubrir **{duration} días desde el {pd.Timestamp(arrival):%d/%m/%Y}**, revisar la compra de **{len(buy)} productos**. '
-                            f'Hay **{urgent} productos urgentes** que podrían agotarse antes de la llegada o ya están sin stock.')
+                from html import escape as _psi_escape
+                no_buy=int((plan['Prioridad']=='No comprar').sum())
+                total_cost=float(buy['Inversión S/'].sum())
+                text_summary=(f'Para cubrir {duration} días desde la llegada del {pd.Timestamp(arrival):%d/%m/%Y}, '
+                              f'se propone adquirir {int(buy["Comprar"].sum()):,} unidades de {len(buy)} productos '
+                              f'con una inversión estimada de S/ {total_cost:,.2f}. '
+                              f'{urgent} productos requieren atención urgente y {no_buy} no necesitan compra en este escenario.')
+                st.markdown(f'<div class="psi-executive"><h3>Decisión recomendada</h3><p>{_psi_escape(text_summary)}</p></div>',unsafe_allow_html=True)
+                b1,b2,b3=st.columns(3)
+                b1.metric('Atención urgente',f'{urgent} productos')
+                b2.metric('Compra programada',f'{int((plan["Prioridad"]=="Programar").sum())} productos')
+                b3.metric('No comprar',f'{no_buy} productos')
                 if (today-last).days>2:
                     st.warning(f'Última venta cargada: {last:%d/%m/%Y}. Faltan días recientes; las compras sugeridas podrían estar subestimadas.')
                 if len(dates)<28:
@@ -4194,16 +4219,33 @@ def pantalla_stock_intelligence():
                 if (plan['Costo unitario'].eq(0)&plan['Comprar'].gt(0)).any():
                     st.warning('Hay productos sin costo válido. La inversión total puede estar incompleta.')
                 st.caption('Stock actual = hoja Inventario. La recomendación NO incluye pedidos en tránsito ni reconstruye ventas perdidas durante quiebres de stock.')
-                st.markdown('### 3. Lista de compras recomendadas')
+                st.markdown('<div class="psi-section"><span class="psi-index">03</span> Prioridades de compra</div>',unsafe_allow_html=True)
                 view=st.radio('Mostrar',['Solo comprar','Todos los productos','Urgentes'],horizontal=True,key='psi_simple_filter')
                 visible=buy if view=='Solo comprar' else (plan[plan['Prioridad']=='Urgente'] if view=='Urgentes' else plan)
-                st.dataframe(visible[['Producto','Stock actual','Venta diaria','Cobertura (días)','Comprar','Inversión S/','Prioridad','Motivo']],hide_index=True,use_container_width=True,height=min(520,max(160,55+len(visible)*36)))
+                st.caption('Ordenado por prioridad. Selecciona «Todos los productos» para revisar también los que no necesitan reposición.')
+                view_cols=['Producto','Stock actual','Venta diaria','Cobertura (días)','Comprar','Inversión S/','Prioridad','Motivo']
+                st.dataframe(visible[view_cols],hide_index=True,use_container_width=True,height=min(500,max(180,55+len(visible)*36)),column_config={
+                    'Producto':st.column_config.TextColumn('Producto',width='large'),
+                    'Stock actual':st.column_config.NumberColumn('Stock',format='%d und'),
+                    'Venta diaria':st.column_config.NumberColumn('Venta/día',format='%.2f'),
+                    'Cobertura (días)':st.column_config.NumberColumn('Días restantes',format='%.1f'),
+                    'Comprar':st.column_config.NumberColumn('Pedir',format='%d und'),
+                    'Inversión S/':st.column_config.NumberColumn('Inversión',format='S/ %.2f'),
+                    'Prioridad':st.column_config.TextColumn('Decisión',width='small'),
+                    'Motivo':st.column_config.TextColumn('Fundamento',width='large')})
+                if len(buy)>0:
+                    import plotly.graph_objects as _psi_go
+                    st.markdown('**¿Dónde se concentra la inversión?**')
+                    chart=buy.nlargest(8,'Inversión S/').sort_values('Inversión S/')
+                    fig_inv=_psi_go.Figure(_psi_go.Bar(x=chart['Inversión S/'],y=chart['Producto'].str.slice(0,34),orientation='h',marker_color='#00A959',text=[f'S/ {v:,.0f}' for v in chart['Inversión S/']],textposition='outside',cliponaxis=False))
+                    fig_inv.update_layout(margin=dict(l=10,r=55,t=12,b=18),height=max(220,40*len(chart)+75),paper_bgcolor='white',plot_bgcolor='white',showlegend=False,font=dict(color='#42536b',size=12),xaxis=dict(title='Inversión sugerida (S/)',showgrid=True,gridcolor='#eef1f5'),yaxis=dict(title=''))
+                    st.plotly_chart(fig_inv,use_container_width=True,config={'displayModeBar':False})
                 st.download_button('📥 Descargar lista de compra (Excel)',data=_p_excel({'Compra recomendada':plan}),file_name='TiendasPremium_Plan_de_Compras.xlsx',mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',key='psi_simple_export')
-                st.markdown('### 4. ¿Por qué comprar este producto?')
+                st.markdown('<div class="psi-section"><span class="psi-index">04</span> Explicación de un producto</div>',unsafe_allow_html=True)
                 product_names=[f"{r.Producto} · {r.Código}" for r in plan.itertuples(index=False)]
                 chosen=st.selectbox('Producto para revisar',options=range(len(plan)),format_func=lambda i:product_names[i],key='psi_simple_selected')
                 item=plan.iloc[chosen]
-                st.markdown(f"**{item['Producto']}** — {item['Prioridad']}. {item['Motivo']}")
+                st.markdown(f'<div class="psi-executive"><h3>{_psi_escape(str(item["Producto"]))} · {_psi_escape(str(item["Prioridad"]))}</h3><p>{_psi_escape(str(item["Motivo"]))}</p></div>',unsafe_allow_html=True)
                 c1,c2,c3=st.columns(3)
                 c1.metric('Stock actual',f"{item['Stock actual']} und")
                 c2.metric('Cobertura estimada',f"{item['Cobertura (días)']} días" if pd.notna(item['Cobertura (días)']) else 'Sin demanda')
@@ -4214,7 +4256,13 @@ def pantalla_stock_intelligence():
                 fig=go.Figure(go.Bar(x=daily.index,y=daily.values,marker_color='#00A959',text=[f'{v:.0f}' for v in daily.values],textposition='outside',cliponaxis=False,name='Unidades'))
                 fig.update_layout(title='Ventas de los últimos 14 días',showlegend=False,yaxis_title='Unidades')
                 _p_plot(fig,290)
-                st.caption('Las barras muestran las unidades vendidas cada día. Los días sin ventas se muestran con cero si hay datos completos de ese día.')
+                st.caption('Unidades vendidas por día. Un cero solo equivale a ausencia de ventas si el registro de ese día está completo.')
+                if float(item['Venta diaria'])>0:
+                    days=int(max(1,round(float(item['Cobertura (días)'])))) if pd.notna(item['Cobertura (días)']) else 0
+                    if days and days<=7:
+                        st.warning(f'Con el stock registrado, este producto podría agotarse en unos {days} días si continúa su ritmo de ventas.')
+                else:
+                    st.info('No hay demanda observada suficiente para calcular días de cobertura. Revisar disponibilidad e historial.')
                 with st.expander('Ver cálculo y limitaciones',expanded=False):
                     st.write(f"Stock al recibir: {item['Stock al recibir']} und · Ventas previstas: {item['Venta esperada']} und · Reserva: {item['Reserva']} und")
                     st.write('Compra = máximo entre 0 y (ventas previstas durante el periodo + reserva − stock estimado al recibir), redondeado hacia arriba.')
