@@ -4758,6 +4758,78 @@ st.markdown(r"""<style>
 </style>""", unsafe_allow_html=True)
 
 # =========================================================
+# PARIDAD VISUAL CON ASISTENCIAS — AJUSTE DEFINITIVO
+# Corrige padding nativo de Streamlit y el menú de radio.
+# =========================================================
+st.markdown(r"""<style>
+/* El margen superior pertenece al contenedor de Streamlit, no a la tarjeta. */
+@media(min-width:769px){
+  body .stApp:not(:has(.tp-lg-hero)) [data-testid="stMainBlockContainer"],
+  body .stApp:not(:has(.tp-lg-hero)) section[data-testid="stMain"] .block-container,
+  body .stApp:not(:has(.tp-lg-hero)) .main .block-container {
+    padding-top:0.5rem!important;margin-top:0!important;
+  }
+}
+/* Quitar huecos introducidos por los elementos de estilo, sin ocultar contenido. */
+.stApp:not(:has(.tp-lg-hero)) [data-testid="stMainBlockContainer"] > [data-testid="stVerticalBlock"] {
+  gap:0.85rem!important;
+}
+.stApp:not(:has(.tp-lg-hero)) [data-testid="stMainBlockContainer"] > [data-testid="stVerticalBlock"] > div:has(> [data-testid="stElementContainer"] > [data-testid="stMarkdown"] > style) {min-height:0!important;}
+/* Sidebar igual a Asistencias: fondo blanco, menú limpio y selección coral. */
+section[data-testid="stSidebar"]{background:#fff!important;border-right:1px solid #E3E6EC!important;}
+section[data-testid="stSidebar"] [data-testid="stSidebarContent"]{padding-top:.55rem!important;}
+section[data-testid="stSidebar"] [role="radiogroup"]{gap:1px!important;}
+section[data-testid="stSidebar"] [role="radiogroup"] label{
+  position:relative!important;border:0!important;border-radius:12px!important;
+  min-height:40px!important;padding:8px 12px!important;background:transparent!important;
+  display:flex!important;align-items:center!important;
+}
+/* Ocultar de verdad los círculos de Streamlit/BaseWeb, no los textos. */
+section[data-testid="stSidebar"] [role="radiogroup"] label [data-baseweb="radio"],
+section[data-testid="stSidebar"] [role="radiogroup"] label [data-testid="stRadioButton"],
+section[data-testid="stSidebar"] [role="radiogroup"] label > div:first-child:not(:has([data-testid="stMarkdownContainer"])),
+section[data-testid="stSidebar"] [role="radiogroup"] label svg{
+  display:none!important;visibility:hidden!important;width:0!important;min-width:0!important;
+  height:0!important;margin:0!important;padding:0!important;
+}
+section[data-testid="stSidebar"] [role="radiogroup"] label p{
+  color:#64748B!important;font-size:.88rem!important;font-weight:550!important;
+}
+section[data-testid="stSidebar"] [role="radiogroup"] label:hover{background:#F3F4F7!important;}
+section[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked){background:#FDECEC!important;}
+section[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked)::before{
+  content:"";position:absolute;left:0;top:6px;bottom:6px;width:4px;
+  background:#EC3237;border-radius:5px;
+}
+section[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p{color:#C9262B!important;font-weight:750!important;}
+section[data-testid="stSidebar"] .tp-brand{padding:2px 8px 12px!important;}
+section[data-testid="stSidebar"] .tp-user{margin-bottom:12px!important;}
+/* Botones como Asistencias: blanco, borde gris y texto oscuro; acción primaria roja. */
+.stApp .stButton>button:not([kind="primary"]),
+.stApp [data-testid="stDownloadButton"] button{
+  background:#FFFFFF!important;color:#152238!important;border:1px solid #DDE3EC!important;
+  border-radius:11px!important;box-shadow:0 2px 4px rgba(15,23,42,.035)!important;font-weight:650!important;
+}
+.stApp .stButton>button:not([kind="primary"]):hover,
+.stApp [data-testid="stDownloadButton"] button:hover{
+  background:#FDECEC!important;color:#C9262B!important;border-color:#F3B9BC!important;
+}
+.stApp .stButton>button[kind="primary"],.stApp [data-testid="stFormSubmitButton"] button[kind="primary"]{
+  background:#EC3237!important;color:white!important;border:1px solid #EC3237!important;
+}
+.stApp .stButton>button[kind="primary"] *{color:white!important;}
+/* No aplicar reglas de botones del panel principal a login. */
+.stApp:has(.tp-lg-hero) .st-key-tp_inv_login_form button{background:white!important;color:#152238!important;border:1px solid #DDE3EC!important;}
+@media(max-width:768px){
+  body .stApp:not(:has(.tp-lg-hero)) [data-testid="stMainBlockContainer"],
+  body .stApp:not(:has(.tp-lg-hero)) .main .block-container{
+    padding:3.25rem 12px 4rem!important;margin-top:0!important;
+  }
+  section[data-testid="stSidebar"] [role="radiogroup"] label{min-height:44px!important;}
+}
+</style>""", unsafe_allow_html=True)
+
+# =========================================================
 # ESTADO / ARRANQUE
 # =========================================================
 
