@@ -2256,38 +2256,108 @@ def pantalla_login():
         footer()
         return
 
-    # Acceso ejecutivo con la misma composición visual de Asistencias.
-    # Conserva la autenticación y los bloqueos de seguridad de Inventario.
-    st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+    # Composición visual fiel al acceso de Asistencias.
+    # Autenticación, permisos y seguridad de Inventario se mantienen independientes.
+    st.markdown(r"""<style>
+.stApp:has(.tp-lg-hero){background:radial-gradient(1100px 560px at 8% -10%,#FDECEC 0%,transparent 60%),radial-gradient(900px 520px at 100% 110%,#E4EBF8 0%,transparent 58%),var(--tp-bg);}
+.stApp:has(.tp-lg-hero) .block-container{padding-top:1.6rem;max-width:1180px;}
+.tp-lg-hero{position:relative;overflow:hidden;border-radius:28px;padding:36px 38px;min-height:640px;color:#fff;display:flex;flex-direction:column;justify-content:space-between;
+  background:linear-gradient(150deg,#0B1220 0%,#111C33 55%,#1B2A4A 100%);box-shadow:0 30px 60px -30px rgba(15,23,42,.6);}
+.tp-lg-hero::before{content:"";position:absolute;width:540px;height:540px;right:-190px;top:-170px;border-radius:50%;background:radial-gradient(circle,rgba(236,50,55,.55),rgba(236,50,55,0) 68%);}
+.tp-lg-hero::after{content:"";position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.045) 1px,transparent 1px);background-size:44px 44px;-webkit-mask-image:linear-gradient(180deg,#000,transparent 88%);mask-image:linear-gradient(180deg,#000,transparent 88%);}
+.tp-lg-hero>*{position:relative;z-index:1;}
+.tp-lg-logo{display:inline-flex;background:#fff;border-radius:16px;padding:10px 18px;box-shadow:0 12px 30px -12px rgba(0,0,0,.6);}
+.tp-lg-k{font-size:.72rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#FF8A8E;margin:34px 0 10px;}
+.tp-lg-h{font-size:2.2rem;font-weight:800;line-height:1.14;letter-spacing:-.02em;margin:0 0 14px;color:#fff;}
+.tp-lg-h em{font-style:normal;color:#FF6B70;}
+.tp-lg-p{color:#B7C2D9;font-size:.98rem;line-height:1.65;max-width:440px;margin:0;}
+.tp-lg-feat{display:grid;gap:10px;margin-top:26px;max-width:460px;}
+.tp-lg-feat div{display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:12px 14px;font-size:.87rem;font-weight:600;color:#E6ECF8;}
+.tp-lg-feat i{flex:0 0 auto;width:32px;height:32px;border-radius:10px;background:rgba(236,50,55,.2);color:#FF8A8E;display:flex;align-items:center;justify-content:center;}
+.tp-lg-quote{position:relative;margin-top:26px;padding:18px 20px 18px 24px;border-radius:16px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);}
+.tp-lg-quote::before{content:"";position:absolute;left:0;top:16px;bottom:16px;width:4px;border-radius:4px;background:#EC3237;}
+.tp-lg-quote small{display:block;font-size:.68rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#FF8A8E;margin-bottom:8px;}
+.tp-lg-quote p{margin:0;font-size:1.1rem;font-weight:600;line-height:1.5;color:#fff;}
+.tp-lg-spacer{height:64px;}
+.tp-lg-who{display:flex;flex-direction:column;align-items:center;text-align:center;margin-bottom:10px;animation:tpPop .4s ease;}
+.tp-lg-who .tp-avatar{box-shadow:0 0 0 3px #fff,0 0 0 6px var(--tp-red),0 14px 30px -10px rgba(236,50,55,.55);}
+.tp-lg-t{font-size:1.45rem;font-weight:800;color:var(--tp-ink);margin-top:16px;letter-spacing:-.01em;}
+.tp-lg-s{font-size:.86rem;color:var(--tp-mute);margin-top:4px;}
+.tp-lg-lock{width:58px;height:58px;border-radius:18px;background:var(--tp-red-soft);color:var(--tp-red);display:flex;align-items:center;justify-content:center;}
+@keyframes tpPop{from{opacity:0;transform:translateY(8px) scale(.97);}to{opacity:1;transform:none;}}
+.st-key-tpc_login_form{padding:32px 30px 26px!important;border-radius:26px!important;box-shadow:var(--tp-sh-2)!important;}
+.st-key-tpc_login_form [data-baseweb="input"]{min-height:50px;background:#F6F7FA!important;}
+.st-key-tpc_login_form .stButton>button{min-height:52px;border:none!important;background:linear-gradient(135deg,#EC3237,#C9262B)!important;box-shadow:0 14px 26px -12px rgba(236,50,55,.7);}
+.st-key-tpc_login_form .stButton>button *{color:#111827!important;font-weight:700;}
+.st-key-tpc_login_form .stButton>button{color:#111827!important;}
+.tp-lg-note{display:flex;gap:8px;align-items:center;justify-content:center;font-size:.76rem;color:var(--tp-mute);margin-top:14px;}
+@media (max-width:900px){.tp-lg-hero{min-height:0;padding:22px;border-radius:22px;}.tp-lg-k{margin-top:20px;}.tp-lg-h{font-size:1.5rem;}.tp-lg-feat,.tp-lg-spacer{display:none;}.tp-lg-quote{margin-top:16px;padding:14px 16px 14px 20px;}.tp-lg-quote p{font-size:.95rem;}}
+
+/* Compatibilidad: Inventario utiliza su propio contenedor y mantiene autenticación. */
+.stApp:has(.tp-lg-hero) .tp-lg-hero{height:auto!important;min-height:640px!important;padding:36px 38px!important;display:flex!important;flex-direction:column!important;justify-content:space-between!important}
+.stApp:has(.tp-lg-hero) .tp-lg-feat{display:grid!important;gap:10px!important;margin-top:26px!important}
+.stApp:has(.tp-lg-hero) .tp-lg-feat div{display:flex!important;align-items:center!important;gap:12px!important;padding:12px 14px!important;border-radius:14px!important}
+.stApp:has(.tp-lg-hero) .tp-lg-feat i{flex:0 0 auto;width:32px;height:32px;border-radius:10px;background:rgba(236,50,55,.2);color:#FF8A8E;display:flex;align-items:center;justify-content:center;font-style:normal}
+.stApp:has(.tp-lg-hero) .tp-lg-quote{display:block!important;margin-top:26px!important;padding:18px 20px 18px 24px!important;border:1px solid rgba(255,255,255,.1)!important;border-left:none!important;border-radius:16px!important}
+.stApp:has(.tp-lg-hero) .tp-lg-quote::before{content:"";position:absolute;left:0;top:16px;bottom:16px;width:4px;border-radius:4px;background:#EC3237}
+.stApp:has(.tp-lg-hero) .tp-lg-quote p{color:#fff!important}
+.stApp:has(.tp-lg-hero) .tp-lg-h{font-size:2.2rem!important;line-height:1.14!important}
+.stApp:has(.tp-lg-hero) .tp-lg-p{color:#B7C2D9!important}
+.stApp:has(.tp-lg-hero) .tp-lg-logo{border-radius:16px!important;padding:10px 18px!important}
+.st-key-tp_inv_login_form{background:#fff!important;border:1px solid #E3E6EC!important;border-radius:26px!important;padding:32px 30px 26px!important;box-shadow:0 8px 24px -8px rgba(15,23,42,.14)!important}
+.st-key-tp_inv_login_form [data-testid="stTextInput"] input{min-height:50px!important;background:#F6F7FA!important;color:#0F172A!important}
+.st-key-tp_inv_login_form [data-testid="stButton"] button{min-height:52px!important;background:#fff!important;border:1px solid #D8DEE8!important;color:#0F172A!important;font-weight:700!important;border-radius:12px!important;box-shadow:0 3px 8px rgba(15,23,42,.04)!important}
+.st-key-tp_inv_login_form [data-testid="stButton"] button *{color:#0F172A!important}
+.st-key-tp_inv_login_form .tp-login-lock{display:flex!important;align-items:center;justify-content:center;margin:0 auto 12px!important;width:58px!important;height:58px!important;background:#FDECEC!important;border-radius:18px!important}
+.st-key-tp_inv_login_form .tp-login-title{font-size:1.45rem!important;margin:16px 0 4px!important}
+.st-key-tp_inv_login_form .tp-login-sub{font-size:.86rem!important;margin-bottom:18px!important}
+@media(max-width:900px){.stApp:has(.tp-lg-hero) .tp-lg-hero{min-height:0!important;padding:22px!important}.stApp:has(.tp-lg-hero) .tp-lg-h{font-size:1.5rem!important}.stApp:has(.tp-lg-hero) .tp-lg-feat{display:none!important}.stApp:has(.tp-lg-hero) .tp-lg-quote{margin-top:16px!important;padding:14px 16px 14px 20px!important}}
+@media(max-width:640px){.stApp:has(.tp-lg-hero) .block-container{padding:12px 12px 3rem!important}.st-key-tp_inv_login_form{padding:22px 18px!important}.stApp:has(.tp-lg-hero) .tp-lg-quote{display:none!important}}
+</style>""", unsafe_allow_html=True)
+
+    from datetime import datetime as _dt
+    try:
+        from zoneinfo import ZoneInfo as _ZoneInfo
+        _ahora = _dt.now(_ZoneInfo("America/Lima"))
+    except Exception:
+        _ahora = _dt.now()
+    _saludo = "Buenos días" if _ahora.hour < 12 else ("Buenas tardes" if _ahora.hour < 19 else "Buenas noches")
+    _frases = (
+        "Una venta bien atendida es un cliente para toda la vida.",
+        "Un inventario preciso ayuda a tomar mejores decisiones.",
+        "Comprar con información es cuidar el capital de la tienda.",
+        "Un equipo organizado logra mejores resultados.",
+    )
+    _frase = _frases[_ahora.toordinal() % len(_frases)]
+    _svg1 = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="7" width="18" height="14" rx="2"/><path d="M3 11h18M8 7V3h8v4"/></svg>'
+    _svg2 = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-8M22 20V7"/></svg>'
+    _svg3 = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l8 4v6c0 5-3 8-8 10-5-2-8-5-8-10V6z"/><path d="m9 12 2 2 4-4"/></svg>'
+    _lock = '<svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="#EC3237" stroke-width="2" stroke-linecap="round"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>'
     c_hero, c_form = st.columns([1.15, 1], gap="large")
     with c_hero:
-        logo = logo_tag(46)
-        st.markdown(f"""
-        <div class="tp-lg-hero">
-          <div>
-            <span class="tp-lg-logo">{logo}</span>
-            <div class="tp-lg-k">Bienvenido a Tiendas Premium</div>
-            <div class="tp-lg-h">Tu inventario y tus compras, <em>en un solo lugar.</em></div>
-            <p class="tp-lg-p">Control de existencias, conteos, análisis de ventas y recomendaciones de reposición para tomar mejores decisiones.</p>
-            <div class="tp-lg-feat">
-              <div>📦 Inventario y conteos por producto</div>
-              <div>📊 Pronósticos de demanda y stock de seguridad</div>
-              <div>🛡️ Acceso protegido y auditoría de operaciones</div>
-            </div>
-          </div>
-          <div class="tp-lg-quote"><small>Premium Stock Intelligence</small><p>Información clara para comprar lo necesario y evitar quiebres de stock.</p></div>
+        st.markdown(f"""<div class="tp-lg-hero"><div>
+        <span class="tp-lg-logo">{logo_tag(42)}</span>
+        <div class="tp-lg-k">{_saludo}, equipo Premium</div>
+        <div class="tp-lg-h">Tu inventario y tus compras, <em>en un solo lugar.</em></div>
+        <p class="tp-lg-p">Control de existencias, conteos y compras de Tiendas Premium, con información clara y al instante.</p>
+        <div class="tp-lg-feat">
+          <div><i>{_svg1}</i>Inventario y conteos por producto</div>
+          <div><i>{_svg2}</i>Pronósticos de demanda y reposición inteligente</div>
+          <div><i>{_svg3}</i>Acceso protegido y control de operaciones</div>
+        </div></div>
+        <div class="tp-lg-quote"><small>Frase del día</small><p>{_frase}</p></div>
         </div>""", unsafe_allow_html=True)
     with c_form:
-        st.markdown("<div style='height:46px'></div>", unsafe_allow_html=True)
-        with st.container(border=True):
-            st.markdown('<div class="tp-login-lock">🔐</div><div class="tp-login-title">Bienvenido</div><div class="tp-login-sub">Ingresa tu usuario y contraseña para continuar</div>', unsafe_allow_html=True)
+        st.markdown('<div class="tp-lg-spacer" style="height:64px"></div>', unsafe_allow_html=True)
+        with st.container(key="tp_inv_login_form"):
+            st.markdown(f'<div class="tp-login-lock">{_lock}</div><div class="tp-login-title">Bienvenido</div><div class="tp-login-sub">Ingresa tu usuario y contraseña para continuar</div>', unsafe_allow_html=True)
             usuario = st.text_input("Usuario", placeholder="Ingresa tu usuario", key="tp_inv_login_user")
             password = st.text_input("Contraseña", type="password", placeholder="Ingresa tu contraseña", key="tp_inv_login_pass")
-            st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+            st.markdown('<div style="height:10px"></div>', unsafe_allow_html=True)
             segundos_bloqueo = int(float(st.session_state.get("login_bloqueo_hasta", 0.0)) - time.time())
             if segundos_bloqueo > 0:
                 st.error(f"Demasiados intentos fallidos. Intenta nuevamente en {segundos_bloqueo // 60 + 1} min.")
-            if st.button("Ingresar al sistema", use_container_width=True, type="primary", disabled=segundos_bloqueo > 0):
+            if st.button("Ingresar al sistema", use_container_width=True, type="secondary", disabled=segundos_bloqueo > 0):
                 try:
                     registro = autenticar(usuario, password)
                     if registro:
@@ -2312,9 +2382,10 @@ def pantalla_login():
                             st.error(f"Credenciales incorrectas ({intentos}/{MAX_INTENTOS_LOGIN})")
                 except Exception as exc:
                     mostrar_error_google(exc, "inicio de sesión")
-            st.caption("Acceso exclusivo para personal autorizado · Tiendas Premium EIRL")
+            st.caption("Conexión protegida · Acceso exclusivo para personal autorizado")
+        with st.expander("›  Instalar en tu celular", expanded=False):
+            st.caption("Abre esta página en el navegador de tu celular. En Android selecciona 'Instalar aplicación' o 'Añadir a pantalla de inicio'; en iPhone, Compartir → Añadir a pantalla de inicio. La opción depende del navegador.")
     st.stop()
-
 
 # =========================================================
 # INICIO
