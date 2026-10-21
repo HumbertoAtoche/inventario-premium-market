@@ -3098,12 +3098,195 @@ def _tab_tendencia():
     st.dataframe(vista, use_container_width=True, hide_index=True)
 
 
+# =========================================================
+# ETAPA 4 — INTELIGENCIA DE INVENTARIOS
+# Solo sesiones cerradas; no confunde pendientes con faltantes.
+# =========================================================
+
+def _e4_sesiones_cerradas(sucursal="Todas"):
+    ses = cargar_sesiones().copy()
+    if ses.empty:
+        return ses
+    ses = ses[ses["Estado"].astype(str).str.upper() == "CERRADA"].copy()
+    if sucursal != "Todas":
+        ses = ses[ses["Sucursal"].astype(str) == sucursal]
+    return ses.drop_duplicates("IdSesion", keep="last")
+
+
+def _e4_conteos_historicos(sesiones):
+    """Una observación por producto/sesión; respeta los reconteos y las zonas."""
+    if sesiones.empty:
+        return pd.DataFrame()
+    todos = cargar_conteos()
+    if todos.empty:
+        return pd.DataFrame()
+    d = todos[todos["IdSesion"].astype(str).isin(set(sesiones["IdSesion"].astype(str)))].copy()
+    if d.empty:
+        return d
+    d = conteos_vigentes(d)
+    # Se usa la misma consolidación que en resultados: los conteos por zona
+    # están reflejados en ConteoInventario por el mecanismo de consolidación.
+    d["_ProductoClave"] = clave_producto(d)
+    d["_SesionClave"] = d["IdSesion"].astype(str)
+    for col in ["StockSistema", "StockFisico", "Diferencia", "CostoUnitario", "ValorFaltante", "ValorSobrante"]:
+        d[col] = pd.to_numeric(d[col], errors="coerce").fillna(0)
+    d = d.merge(sesiones[["IdSesion", "NombreSesion", "FechaFin"]].astype(str), on="IdSesion", how="left")
+    return d
+
+
+def _e4_resumen_historico(sesiones):
+    if sesiones.empty:
+        return pd.DataFrame()
+    r = cargar_resumenes().copy()
+    if r.empty:
+        return r
+    r = r[r["IdSesion"].astype(str).isin(set(sesiones["IdSesion"].astype(str)))].copy()
+    if r.empty:
+        return r
+    r = r.drop_duplicates("IdSesion", keep="last")
+    for col in ["CoberturaInventario", "ExactitudInventario", "ValorFaltantes", "ValorSobrantes", "DesfaseNeto", "ProductosPendientes"]:
+        r[col] = pd.to_numeric(r[col], errors="coerce")
+    r = r.merge(sesiones[["IdSesion", "FechaFin"]].astype(str), on="IdSesion", how="left")
+    r["OrdenFecha"] = pd.to_datetime(r["FechaFin"], errors="coerce")
+    r = r.sort_values(["OrdenFecha", "IdSesion"], kind="stable")
+    r["Sesión"] = r["NombreSesion"].astype(str) + " · " + r["IdSesion"].astype(str).str[-6:]
+    return r
+
+
+def _e4_recurrencias(conteos, minimo=2):
+    if conteos.empty:
+        return pd.DataFrame()
+    d = conteos[conteos["Diferencia"].abs() > 0.000001].copy()
+    if d.empty:
+        return pd.DataFrame()
+    d["PerdidaSoles"] = d["ValorFaltante"].clip(lower=0)
+    d["SobranteSoles"] = d["ValorSobrante"].clip(lower=0)
+    agrupado = d.groupby("_ProductoClave", as_index=False).agg(
+        Producto=("Producto", "last"), Categoria=("Categoria", "last"),
+        Sucursal=("Sucursal", "last"), SesionesConDiferencia=("IdSesion", "nunique"),
+        PerdidaAcumulada=("PerdidaSoles", "sum"), SobranteAcumulado=("SobranteSoles", "sum"),
+        UltimaFecha=("FechaFin", "max"),
+    )
+    return agrupado[agrupado["SesionesConDiferencia"] >= minimo].sort_values(
+        ["SesionesConDiferencia", "PerdidaAcumulada"], ascending=False)
+
+
+def _e4_criticidad(inventario, recurrencias):
+    """Criticidad de control, no pronóstico de demanda: ABC valor + recurrencia."""
+    abc = clasificar_abc(inventario)
+    if abc.empty:
+        return abc
+    d = abc.copy()
+    # Vincular por código de producto dentro de sucursal cuando esté disponible.
+    # Si no existe coincidencia fiable, no se imputa recurrencia.
+    d["SesionesConDiferencia"] = 0
+    if not recurrencias.empty and "CodigoProducto" in d.columns:
+        # El ABC actual no incluye sucursal; evitar atribuir recurrencias
+        # entre sucursales usando un código que podría estar repetido.
+        pass
+    d["Criticidad"] = d["Clase"].map({"A": "ALTA", "B": "MEDIA", "C": "BAJA"}).fillna("SIN CLASE")
+    return d
+
+
+def _e4_alertas_stock(inv):
+    """Alertas descriptivas, sin inventar rotación ni puntos de reposición."""
+    if inv.empty:
+        return pd.DataFrame()
+    d = inv.copy()
+    d["StockSistema"] = pd.to_numeric(d["StockSistema"], errors="coerce").fillna(0)
+    d["CostoUnitario"] = pd.to_numeric(d["CostoUnitario"], errors="coerce").fillna(0)
+    d["Alerta"] = d["StockSistema"].apply(lambda x: "STOCK NEGATIVO" if x < 0 else ("SIN STOCK" if x == 0 else ""))
+    d.loc[(d["CostoUnitario"] <= 0) & (d["Alerta"] == ""), "Alerta"] = "SIN COSTO"
+    return d[d["Alerta"] != ""][["Sucursal", "CodigoProducto", "Producto", "Categoria", "StockSistema", "CostoUnitario", "Alerta"]]
+
+
+def _tab_inteligencia():
+    st.markdown("### Inteligencia de inventarios")
+    st.caption("Histórico de sesiones cerradas. Los productos pendientes o no localizados NO se clasifican como pérdidas.")
+    sesiones_all = cargar_sesiones()
+    if sesiones_all.empty:
+        st.info("Todavía no hay sesiones para analizar.")
+        return
+    sucursales = sorted([str(x) for x in sesiones_all["Sucursal"].dropna().unique() if str(x).strip()])
+    suc = st.selectbox("Sucursal", ["Todas"] + sucursales, key="e4_sucursal")
+    ses = _e4_sesiones_cerradas(suc)
+    if ses.empty:
+        st.info("No existen sesiones cerradas para esta sucursal.")
+        return
+    resumen = _e4_resumen_historico(ses)
+    conteos = _e4_conteos_historicos(ses)
+    tabs = st.tabs(["📊 Ejecutivo", "🔁 Recurrentes", "💸 Pérdidas", "🅰️ ABC y criticidad", "🚨 Stock y reposición"])
+    with tabs[0]:
+        if resumen.empty:
+            st.warning("No hay resúmenes históricos guardados. Cierra sesiones nuevas para alimentar las tendencias.")
+        else:
+            ultimo = resumen.iloc[-1]
+            c1, c2, c3, c4 = st.columns(4)
+            with c1: kpi("Sesiones cerradas", str(len(resumen)), "histórico filtrado")
+            with c2: kpi("Cobertura final", f"{ultimo['CoberturaInventario']:.1f}%" if pd.notna(ultimo["CoberturaInventario"]) else "—", "última sesión")
+            with c3: kpi("Exactitud final", f"{ultimo['ExactitudInventario']:.1f}%" if pd.notna(ultimo["ExactitudInventario"]) else "—", "solo productos verificados")
+            with c4: kpi("Pérdida bruta", formato_soles(resumen["ValorFaltantes"].sum()), "suma histórica de faltantes")
+            graf = resumen.set_index("Sesión")[["CoberturaInventario", "ExactitudInventario"]].rename(columns={"CoberturaInventario":"Cobertura %", "ExactitudInventario":"Exactitud %"})
+            st.markdown("#### Evolución de cobertura y exactitud")
+            st.line_chart(graf)
+            st.markdown("#### Diferencias valorizadas por sesión")
+            st.bar_chart(resumen.set_index("Sesión")[["ValorFaltantes", "ValorSobrantes"]].rename(columns={"ValorFaltantes":"Faltantes S/", "ValorSobrantes":"Sobrantes S/"}))
+            st.dataframe(resumen[["Fecha", "NombreSesion", "Sucursal", "CoberturaInventario", "ExactitudInventario", "ProductosPendientes", "ValorFaltantes", "ValorSobrantes"]], use_container_width=True, hide_index=True)
+            st.download_button("📥 Exportar histórico ejecutivo (Excel)", exportar_excel({"Tendencias":resumen.drop(columns=["OrdenFecha"])}), file_name="inteligencia_historico.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key="e4_xls_hist")
+    with tabs[1]:
+        umbral = st.number_input("Mínimo de sesiones con diferencias", min_value=2, max_value=max(2, len(ses)), value=2, key="e4_recur_min")
+        rec = _e4_recurrencias(conteos, umbral) if not conteos.empty else pd.DataFrame()
+        if rec.empty:
+            st.info("No se identifican diferencias recurrentes con el criterio seleccionado.")
+        else:
+            st.dataframe(rec.drop(columns=["_ProductoClave"]), use_container_width=True, hide_index=True)
+            st.download_button("📥 Exportar recurrencias (Excel)", exportar_excel({"Recurrentes":rec.drop(columns=["_ProductoClave"])}), file_name="productos_recurrentes.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key="e4_xls_rec")
+        st.caption("Se cuenta una vez por producto y sesión, incluso si hubo varios reconteos.")
+    with tabs[2]:
+        if conteos.empty:
+            st.info("No existen conteos históricos para valorizar.")
+        else:
+            perd = conteos[conteos["ValorFaltante"] > 0].copy()
+            if perd.empty:
+                st.success("No hay faltantes valorizados en las sesiones cerradas seleccionadas.")
+            else:
+                ranking = perd.groupby("_ProductoClave", as_index=False).agg(Producto=("Producto", "last"), Categoria=("Categoria", "last"), Sucursal=("Sucursal", "last"), Sesiones=("IdSesion", "nunique"), UnidadesFaltantes=("Diferencia", lambda v: float(-v[v < 0].sum())), PerdidaSoles=("ValorFaltante", "sum")).sort_values("PerdidaSoles", ascending=False)
+                c1,c2=st.columns(2)
+                with c1: kpi("Pérdida bruta histórica", formato_soles(perd["ValorFaltante"].sum()), "sin descontar sobrantes")
+                with c2: kpi("Productos con pérdida", f"{len(ranking):,}", "productos distintos")
+                st.bar_chart(ranking.head(15).set_index("Producto")["PerdidaSoles"])
+                st.dataframe(ranking.drop(columns=["_ProductoClave"]), use_container_width=True, hide_index=True)
+                st.download_button("📥 Exportar ranking de pérdidas (Excel)", exportar_excel({"Perdidas":ranking.drop(columns=["_ProductoClave"])}), file_name="ranking_perdidas.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key="e4_xls_perd")
+    with tabs[3]:
+        inv = cargar_inventario()
+        if suc != "Todas":
+            inv = inv[inv["Sucursal"].astype(str) == suc].copy()
+        abc = _e4_criticidad(inv, pd.DataFrame())
+        if abc.empty:
+            st.info("No hay stock valorizado suficiente para calcular ABC.")
+        else:
+            st.caption("ABC por valor actual a costo: A hasta 80 %, B hasta 95 %, C restante. Criticidad inicial basada en ABC, no en ventas.")
+            st.dataframe(abc, use_container_width=True, hide_index=True)
+            st.download_button("📥 Exportar ABC y criticidad (Excel)", exportar_excel({"ABC_Criticidad":abc}), file_name="abc_criticidad.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key="e4_xls_abc")
+    with tabs[4]:
+        inv = cargar_inventario()
+        if suc != "Todas":
+            inv = inv[inv["Sucursal"].astype(str) == suc].copy()
+        alertas = _e4_alertas_stock(inv)
+        if alertas.empty:
+            st.success("Sin alertas básicas de stock negativo, stock cero o costo faltante.")
+        else:
+            st.dataframe(alertas, use_container_width=True, hide_index=True)
+            st.download_button("📥 Exportar alertas (Excel)", exportar_excel({"Alertas":alertas}), file_name="alertas_stock.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key="e4_xls_alertas")
+        st.info("Las sugerencias de cantidad a reponer, punto de pedido y días de cobertura se habilitarán cuando existan movimientos/ventas con fecha, producto, sucursal y unidades. No se estimará demanda a partir de conteos físicos.")
+
+
 def pantalla_analisis():
     header("Análisis de inventario", "Prioriza el conteo, detecta problemas en los datos y mide el desempeño")
     es_admin = str(st.session_state.usuario.get("Rol", "")).upper() == "ADMIN"
     etiquetas = ["🎯 Pendientes", "🅰️ Análisis ABC"]
     if es_admin:
-        etiquetas += ["🩺 Salud de datos", "👥 Productividad", "📈 Tendencia"]
+        etiquetas += ["🩺 Salud de datos", "👥 Productividad", "📈 Tendencia", "🧠 Inteligencia"]
     tabs = st.tabs(etiquetas)
     with tabs[0]:
         _tab_pendientes()
@@ -3116,6 +3299,8 @@ def pantalla_analisis():
             _tab_productividad()
         with tabs[4]:
             _tab_tendencia()
+        with tabs[5]:
+            _tab_inteligencia()
 
 # =========================================================
 # ADMINISTRACIÓN
@@ -3239,6 +3424,53 @@ def pantalla_admin():
             )
 
 # =========================================================
+# IDENTIDAD VISUAL PREMIUM — TEMA CLARO UNIFICADO
+# Referencia: dashboard de asistencia de Tiendas Premium.
+# Solo presentación: no modifica lógica ni Google Sheets.
+# =========================================================
+st.markdown("""
+<style>
+:root {color-scheme:light;--tp-ink:#152238;--tp-muted:#7889A3;--tp-red:#EC3237;--tp-green:#00A959;--tp-line:#E1E6EE;--tp-page:#F3F5F8;}
+html,body,.stApp,[data-testid="stAppViewContainer"] {background:#F3F5F8!important;color:#152238!important;}
+[data-testid="stMain"], [data-testid="stMainBlockContainer"] {background:transparent!important;}
+[data-testid="stSidebar"],section[data-testid="stSidebar"]>div {background:#FFFFFF!important;border-right:1px solid #E1E6EE!important;}
+[data-testid="stSidebar"] * {color:#26374F!important;}
+[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p {color:#26374F!important;}
+[data-testid="stSidebar"] [role="radiogroup"] label {border-radius:13px!important;border:0!important;padding:11px 13px!important;transition:background .15s ease;}
+[data-testid="stSidebar"] [role="radiogroup"] label:hover {background:#F3F5F8!important;}
+[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {background:#FDE9EA!important;border-left:4px solid #EC3237!important;}
+[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) * {color:#CC252C!important;font-weight:700!important;}
+[data-testid="stSidebar"] [data-testid="stCaptionContainer"] * {color:#7889A3!important;}
+.market-header,.premium-header {background:#FFFFFF!important;border:1px solid #E1E6EE!important;border-left:1px solid #E1E6EE!important;border-radius:18px!important;padding:28px 30px!important;box-shadow:0 5px 16px rgba(30,50,80,.035)!important;position:relative;overflow:hidden;}
+.market-header:before,.premium-header:before {content:"";position:absolute;top:0;left:30px;width:42px;height:4px;border-radius:0 0 5px 5px;background:#EC3237;}
+.market-header h1,.premium-header h1 {font-size:1.55rem!important;font-weight:700!important;color:#152238!important;}
+.market-header p,.premium-header p {color:#7889A3!important;font-size:.9rem!important;}
+.card,.info-card,.kpi-card,.product-card,.stock-box,.price-hero,.price-info-item,.cal-card,div[data-testid="stForm"],div[data-testid="stExpander"],[data-testid="stMetric"] {background:#FFFFFF!important;border:1px solid #E1E6EE!important;border-radius:16px!important;box-shadow:0 2px 5px rgba(30,50,80,.035)!important;}
+.kpi-card,[data-testid="stMetric"] {border-left:4px solid #00A959!important;}
+.info-label,.kpi-label,.stock-label,.price-label {color:#7889A3!important;}
+.info-value,.kpi-value,.stock-number,.price-value,[data-testid="stMetricValue"] {color:#152238!important;}
+.stApp h1,.stApp h2,.stApp h3,.stApp h4,.stApp h5,.stApp h6 {color:#152238!important;}
+.stApp p,.stApp label,.stApp li {color:#34435B;}
+.stButton>button,div[data-testid="stFormSubmitButton"] button,div[data-testid="stDownloadButton"] button {background:#FFFFFF!important;color:#26374F!important;border:1px solid #DDE3EC!important;border-radius:10px!important;box-shadow:none!important;font-weight:600!important;}
+.stButton>button:hover,div[data-testid="stFormSubmitButton"] button:hover,div[data-testid="stDownloadButton"] button:hover {background:#FDE9EA!important;color:#C7262D!important;border-color:#F3B9BC!important;}
+.stButton>button[kind="primary"],div[data-testid="stFormSubmitButton"] button[kind="primary"] {background:#EC3237!important;color:#FFFFFF!important;border-color:#EC3237!important;}
+.stButton>button[kind="primary"] *,div[data-testid="stFormSubmitButton"] button[kind="primary"] * {color:#FFFFFF!important;}
+.stButton>button[kind="primary"]:hover,div[data-testid="stFormSubmitButton"] button[kind="primary"]:hover {background:#D92A30!important;border-color:#D92A30!important;}
+[data-testid="stSidebar"] .stButton>button {background:#FFFFFF!important;color:#26374F!important;border:1px solid #DDE3EC!important;}
+[data-testid="stSidebar"] .stButton>button:hover {background:#FDE9EA!important;color:#C7262D!important;}
+[data-testid="stSidebar"] .btn-logout>button {background:#FFFFFF!important;color:#C7262D!important;border:1px solid #F3B9BC!important;}
+[data-testid="stTabs"] button[aria-selected="true"] {color:#EC3237!important;border-bottom-color:#EC3237!important;}
+[data-testid="stDataFrame"],[data-testid="stDataEditor"],div[data-baseweb="select"]>div,div[data-baseweb="input"]>div,textarea {background:#FFFFFF!important;border-color:#E1E6EE!important;border-radius:10px!important;color:#26374F!important;}
+[data-testid="stAlert"] {border-radius:12px!important;}
+[data-testid="stProgress"] [role="progressbar"]>div {background:#00A959!important;}
+[data-testid="stSidebar"] [data-testid="stSidebarCollapseButton"] * {color:#26374F!important;}
+.app-footer {border-top:1px solid #E1E6EE!important;color:#7889A3!important;}
+.app-footer strong {color:#26374F!important;}
+@media(max-width:768px){.market-header,.premium-header{padding:20px 16px!important;border-radius:13px!important}.market-header h1,.premium-header h1{font-size:1.2rem!important}.card,.info-card,.kpi-card,.product-card{border-radius:12px!important}}
+</style>
+""",unsafe_allow_html=True)
+
+# =========================================================
 # SIDEBAR
 # =========================================================
 
@@ -3261,7 +3493,7 @@ def sidebar():
     )
     st.sidebar.markdown("""
         <div style='padding: 8px 0 16px 0;'>
-            <div style='font-size: 0.85rem; font-weight: 700; letter-spacing: 1px; color: #FFFFFF;'>
+            <div style='font-size: 0.85rem; font-weight: 700; letter-spacing: 1px; color: #152238;'>
                 TIENDAS <span style='color: #EC3237;'>PREMIUM</span>
             </div>
             <div style='font-size: 0.7rem; color: #6B7280; margin-top:2px;'>Sistema de Inventario</div>
@@ -3269,8 +3501,8 @@ def sidebar():
     """, unsafe_allow_html=True)
 
     st.sidebar.markdown(f"""
-        <div style='background-color: #1F2937; padding: 10px 12px; border-radius: 6px; margin-bottom: 16px;'>
-            <div style='font-size: 0.8rem; font-weight: 600; color: #F9FAFB;'>{nombre_usuario}</div>
+        <div style='background-color: #F4F6F9; border: 1px solid #E1E6EE; padding: 12px 14px; border-radius: 14px; margin-bottom: 16px;'>
+            <div style='font-size: 0.8rem; font-weight: 600; color: #152238;'>{nombre_usuario}</div>
             <div style='font-size: 0.68rem; color: #9CA3AF; text-transform: uppercase;'>{safe_text(rol)} • USUARIO {login_usuario}</div>
         </div>
     """, unsafe_allow_html=True)
