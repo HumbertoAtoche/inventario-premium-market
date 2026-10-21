@@ -2155,6 +2155,72 @@ st.markdown("""<style>
 </style>""", unsafe_allow_html=True)
 
 # =========================================================
+# RESPONSIVE MULTIDISPOSITIVO · DISEÑO ÚNICO
+# Solo presentación: no cambia lógica, permisos ni conexiones.
+# =========================================================
+st.markdown(r"""
+<style>
+/* Escalas fluidas: portátil, escritorio, iPad y teléfono. */
+:root{--tp-gap:clamp(10px,1.5vw,22px);--tp-mobile-pad:clamp(12px,2vw,28px)}
+html,body,[data-testid="stApp"]{max-width:100%;overflow-x:clip}
+[data-testid="stAppViewContainer"]{min-width:0}
+.block-container{width:100%;max-width:1600px;padding-left:clamp(14px,2.4vw,42px)!important;padding-right:clamp(14px,2.4vw,42px)!important}
+[data-testid="stHorizontalBlock"]{min-width:0}
+[data-testid="column"]{min-width:0}
+[data-testid="stDataFrame"],[data-testid="stDataEditor"],.js-plotly-plot,.plotly,.stPlotlyChart{max-width:100%;min-width:0}
+[data-testid="stDataFrame"],[data-testid="stDataEditor"]{overflow-x:auto;-webkit-overflow-scrolling:touch}
+[data-testid="stTabs"] [data-baseweb="tab-list"]{overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;flex-wrap:nowrap;-webkit-overflow-scrolling:touch}
+[data-testid="stTabs"] [data-baseweb="tab"]{white-space:nowrap;flex-shrink:0}
+[data-testid="stSidebar"]{max-width:min(340px,90vw)}
+[data-testid="stSidebar"] [data-testid="stSidebarContent"]{overflow-x:hidden}
+[data-testid="stSidebar"] [role="radiogroup"] label{white-space:normal;overflow-wrap:anywhere}
+.tp-lg-hero{height:100%;min-height:0!important;padding:clamp(20px,2.8vw,36px)!important}
+.tp-lg-h{font-size:clamp(1.45rem,2.5vw,2.15rem)!important}
+.tp-lg-p{overflow-wrap:break-word}
+.tp-lg-feat div{overflow-wrap:anywhere}
+.tp-login-title{font-size:clamp(1.35rem,2.2vw,1.7rem)!important}
+.stButton>button,.stDownloadButton>button,.stFormSubmitButton>button{white-space:normal;overflow-wrap:anywhere;min-height:44px}
+[data-testid="stMetricValue"]{font-size:clamp(1.15rem,2vw,2rem)!important;overflow-wrap:anywhere}
+/* Tablets: equilibrar login y evitar tarjetas desbordadas. */
+@media(min-width:641px) and (max-width:1100px){
+ .block-container{padding-left:20px!important;padding-right:20px!important}
+ .tp-lg-hero{padding:24px!important}
+ .tp-lg-feat{gap:8px}
+ .tp-lg-feat div{padding:10px}
+ .tp-lg-quote{margin-top:16px;padding:14px}
+ [data-testid="stHorizontalBlock"]{gap:12px}
+}
+/* Teléfonos: el acceso se apila y el formulario aparece primero en el flujo útil. */
+@media(max-width:640px){
+ html,body,input,select,textarea{font-size:16px}
+ .block-container{padding:12px 12px max(65px,env(safe-area-inset-bottom))!important}
+ [data-testid="stHorizontalBlock"]{flex-wrap:wrap!important;gap:12px!important}
+ [data-testid="stHorizontalBlock"]>[data-testid="column"]{flex:1 1 100%!important;width:100%!important;min-width:0!important}
+ .tp-lg-hero{padding:18px!important;border-radius:15px!important;box-shadow:none!important}
+ .tp-lg-logo{padding:6px 10px!important}
+ .tp-lg-h{font-size:1.45rem!important;line-height:1.22!important;margin-bottom:8px!important}
+ .tp-lg-k{margin:12px 0 8px!important;font-size:.65rem!important}
+ .tp-lg-p{font-size:.83rem!important;line-height:1.5!important;margin:0!important}
+ .tp-lg-feat,.tp-lg-quote{display:none!important}
+ .tp-login-title{font-size:1.4rem!important}
+ .tp-login-sub{margin-bottom:14px!important}
+ .tp-login-lock{width:44px!important;height:44px!important;line-height:44px!important;font-size:1.3rem!important}
+ [data-testid="stVerticalBlockBorderWrapper"]{max-width:100%}
+ .premium-header,.market-header{padding:15px!important}
+ .premium-header h1,.market-header h1{font-size:1.22rem!important}
+ .info-card,.card,.kpi-card,.product-card{padding:13px!important}
+ [data-testid="stMetric"]{padding:12px!important}
+ [data-testid="stSidebar"]{width:min(320px,90vw)!important}
+ .stButton>button,.stDownloadButton>button,.stFormSubmitButton>button{min-height:48px;width:100%}
+ [data-testid="stFileUploader"]{max-width:100%}
+ .js-plotly-plot{max-width:100%}
+}
+@media(max-width:390px){.block-container{padding-left:9px!important;padding-right:9px!important}.tp-lg-h{font-size:1.25rem!important}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
+</style>
+""",unsafe_allow_html=True)
+
+# =========================================================
 # LOGIN / SETUP
 # =========================================================
 
