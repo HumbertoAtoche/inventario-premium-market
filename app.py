@@ -123,7 +123,7 @@ HEADERS_CONTEOS_ZONA = ["IdSesion", "FechaHora", "Usuario", "NombreUsuario", "Zo
 # ESTILOS
 # =========================================================
 
-st.markdown("""
+html("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap');
 
@@ -396,7 +396,7 @@ st.markdown("""
 # ESTILO VISUAL COMPLETO — REFERENCIA APP ASISTENCIA
 # Se superpone al tema previo; no altera procesos ni conexiones.
 # =========================================================
-st.markdown("""
+html("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap');
 
@@ -741,7 +741,7 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
-st.markdown("<style>" + '\n/* Inventario: componentes específicos, armonizados con Asistencia */\n:root { --red:#EC3237; --green:#00A959; --blue:#1071B8; --text:#111827; --muted:#6B7280; --bg:#FAFAFA; --card:#FFFFFF; --border:#E5E7EB; }\n.premium-header,.market-header {background:#fff!important;border:1px solid #E5E7EB!important;border-left:4px solid #EC3237!important;border-radius:8px!important;padding:20px 24px!important;margin-bottom:24px!important;box-shadow:none!important;}\n.premium-header h1,.market-header h1 {color:#111827!important;font-size:1.3rem!important;font-weight:600!important;}\n.premium-header p,.market-header p {color:#6B7280!important;font-size:.85rem!important;}\n.info-card,.card,.kpi-card,.product-card,.price-info-item,.stock-box,.price-hero {background:#fff!important;border:1px solid #E5E7EB!important;border-radius:8px!important;box-shadow:none!important;color:#111827!important;}\n.info-card,.card,.kpi-card {padding:18px 20px!important;margin-bottom:15px!important;}\n.product-card {border-top:3px solid #1071B8!important;padding:18px 20px!important;}\n.info-label,.kpi-label,.stock-label,.price-label {color:#6B7280!important;font-size:.72rem!important;font-weight:600!important;letter-spacing:.5px!important;}\n.info-value,.kpi-value,.stock-number,.price-value {color:#111827!important;font-weight:700!important;}\n.price-hero {padding:24px 20px!important;text-align:center!important;}\n.price-info-grid {display:flex;flex-wrap:wrap;gap:10px;}\n.price-info-item {flex:1 1 120px;padding:12px!important;text-align:center;}\n.badge {display:inline-block;padding:4px 10px;border-radius:999px;font-size:.72rem;font-weight:600;}\n.badge-ok,.badge-sobrante {background:#DCFCE7;color:#15803D;}\n.badge-faltante {background:#FEE2E2;color:#B91C1C;}\n.badge-abierta {background:#DBEAFE;color:#1D4ED8;}\n.badge-cerrada {background:#F3F4F6;color:#4B5563;}\n[data-testid="stSidebar"] [role="radiogroup"] label {border-radius:6px!important;padding:8px 10px!important;}\n[data-testid="stSidebar"] [role="radiogroup"] label:hover {background:#1F2937!important;}\n[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {background:#263445!important;border-left:3px solid #EC3237!important;}\n.stButton>button[kind="primary"],div[data-testid="stFormSubmitButton"] button[kind="primary"] {background:#EC3237!important;color:#fff!important;}\n.stButton>button[kind="primary"]:hover {background:#D02429!important;}\n[data-testid="stDataFrame"], [data-testid="stDataEditor"] {border-radius:8px!important;overflow:hidden;}\n[data-testid="stTabs"] button[aria-selected="true"] {color:#EC3237!important;border-bottom-color:#EC3237!important;}\n[data-testid="stMetric"] {background:#fff;border:1px solid #E5E7EB;border-radius:8px;padding:14px 16px;}\n[data-testid="stMetricValue"] {color:#111827!important;}\n[data-testid="stFileUploader"] {background:#fff;border-radius:8px;}\n.stTextInput input,.stNumberInput input,.stTextArea textarea {border-radius:6px!important;}\n.app-footer {text-align:center;padding:24px 10px 12px;margin-top:40px;border-top:1px solid #E5E7EB;color:#6B7280;font-size:.8rem;}\n@media(max-width:768px) {\n .block-container {padding-left:.65rem!important;padding-right:.65rem!important;padding-bottom:4rem!important;}\n .premium-header,.market-header {padding:16px!important;margin-bottom:16px!important;}\n .premium-header h1,.market-header h1 {font-size:1.13rem!important;}\n .info-card,.card,.kpi-card,.product-card {padding:13px!important;}\n .kpi-value,.info-value {font-size:1.25rem!important;}\n .price-hero .price-value {font-size:2.25rem!important;}\n .stButton>button,div[data-testid="stFormSubmitButton"] button {min-height:46px!important;height:auto!important;}\n [data-testid="stHorizontalBlock"] {gap:.65rem!important;}\n .app-footer {font-size:.72rem;}\n}\n' + "</style>", unsafe_allow_html=True)
+html("<style>" + '\n/* Inventario: componentes específicos, armonizados con Asistencia */\n:root { --red:#EC3237; --green:#00A959; --blue:#1071B8; --text:#111827; --muted:#6B7280; --bg:#FAFAFA; --card:#FFFFFF; --border:#E5E7EB; }\n.premium-header,.market-header {background:#fff!important;border:1px solid #E5E7EB!important;border-left:4px solid #EC3237!important;border-radius:8px!important;padding:20px 24px!important;margin-bottom:24px!important;box-shadow:none!important;}\n.premium-header h1,.market-header h1 {color:#111827!important;font-size:1.3rem!important;font-weight:600!important;}\n.premium-header p,.market-header p {color:#6B7280!important;font-size:.85rem!important;}\n.info-card,.card,.kpi-card,.product-card,.price-info-item,.stock-box,.price-hero {background:#fff!important;border:1px solid #E5E7EB!important;border-radius:8px!important;box-shadow:none!important;color:#111827!important;}\n.info-card,.card,.kpi-card {padding:18px 20px!important;margin-bottom:15px!important;}\n.product-card {border-top:3px solid #1071B8!important;padding:18px 20px!important;}\n.info-label,.kpi-label,.stock-label,.price-label {color:#6B7280!important;font-size:.72rem!important;font-weight:600!important;letter-spacing:.5px!important;}\n.info-value,.kpi-value,.stock-number,.price-value {color:#111827!important;font-weight:700!important;}\n.price-hero {padding:24px 20px!important;text-align:center!important;}\n.price-info-grid {display:flex;flex-wrap:wrap;gap:10px;}\n.price-info-item {flex:1 1 120px;padding:12px!important;text-align:center;}\n.badge {display:inline-block;padding:4px 10px;border-radius:999px;font-size:.72rem;font-weight:600;}\n.badge-ok,.badge-sobrante {background:#DCFCE7;color:#15803D;}\n.badge-faltante {background:#FEE2E2;color:#B91C1C;}\n.badge-abierta {background:#DBEAFE;color:#1D4ED8;}\n.badge-cerrada {background:#F3F4F6;color:#4B5563;}\n[data-testid="stSidebar"] [role="radiogroup"] label {border-radius:6px!important;padding:8px 10px!important;}\n[data-testid="stSidebar"] [role="radiogroup"] label:hover {background:#1F2937!important;}\n[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {background:#263445!important;border-left:3px solid #EC3237!important;}\n.stButton>button[kind="primary"],div[data-testid="stFormSubmitButton"] button[kind="primary"] {background:#EC3237!important;color:#fff!important;}\n.stButton>button[kind="primary"]:hover {background:#D02429!important;}\n[data-testid="stDataFrame"], [data-testid="stDataEditor"] {border-radius:8px!important;overflow:hidden;}\n[data-testid="stTabs"] button[aria-selected="true"] {color:#EC3237!important;border-bottom-color:#EC3237!important;}\n[data-testid="stMetric"] {background:#fff;border:1px solid #E5E7EB;border-radius:8px;padding:14px 16px;}\n[data-testid="stMetricValue"] {color:#111827!important;}\n[data-testid="stFileUploader"] {background:#fff;border-radius:8px;}\n.stTextInput input,.stNumberInput input,.stTextArea textarea {border-radius:6px!important;}\n.app-footer {text-align:center;padding:24px 10px 12px;margin-top:40px;border-top:1px solid #E5E7EB;color:#6B7280;font-size:.8rem;}\n@media(max-width:768px) {\n .block-container {padding-left:.65rem!important;padding-right:.65rem!important;padding-bottom:4rem!important;}\n .premium-header,.market-header {padding:16px!important;margin-bottom:16px!important;}\n .premium-header h1,.market-header h1 {font-size:1.13rem!important;}\n .info-card,.card,.kpi-card,.product-card {padding:13px!important;}\n .kpi-value,.info-value {font-size:1.25rem!important;}\n .price-hero .price-value {font-size:2.25rem!important;}\n .stButton>button,div[data-testid="stFormSubmitButton"] button {min-height:46px!important;height:auto!important;}\n [data-testid="stHorizontalBlock"] {gap:.65rem!important;}\n .app-footer {font-size:.72rem;}\n}\n' + "</style>", unsafe_allow_html=True)
 
 # =========================================================
 # UTILIDADES
@@ -1988,7 +1988,7 @@ def badge(tipo):
 
 
 # Adaptación visual de la app de Asistencias. Solo interfaz: no cambia datos ni procesos.
-st.markdown("""
+html("""
 <style>
 :root{
   --tp-red:#EC3237; --tp-red-dk:#C9262B; --tp-red-soft:#FDECEC;
@@ -2117,7 +2117,7 @@ div[data-testid="stForm"],div[data-testid="stExpander"]{border-radius:var(--tp-r
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;}}
 </style>
 """, unsafe_allow_html=True)
-st.markdown("""<style>
+html("""<style>
 /* Accesibilidad: contraste legible en acciones */
 .stButton>button[kind="primary"],.stFormSubmitButton>button[kind="primary"]{background:#EC3237!important;color:#FFFFFF!important;}
 .stButton>button[kind="secondary"]{background:#FFFFFF!important;color:#0F172A!important;border:1px solid #E3E6EC!important;}
@@ -2158,7 +2158,7 @@ st.markdown("""<style>
 # RESPONSIVE MULTIDISPOSITIVO · DISEÑO ÚNICO
 # Solo presentación: no cambia lógica, permisos ni conexiones.
 # =========================================================
-st.markdown(r"""
+html(r"""
 <style>
 /* Escalas fluidas: portátil, escritorio, iPad y teléfono. */
 :root{--tp-gap:clamp(10px,1.5vw,22px);--tp-mobile-pad:clamp(12px,2vw,28px)}
@@ -2258,7 +2258,7 @@ def pantalla_login():
 
     # Composición visual fiel al acceso de Asistencias.
     # Autenticación, permisos y seguridad de Inventario se mantienen independientes.
-    st.markdown(r"""<style>
+    html(r"""<style>
 .stApp:has(.tp-lg-hero){background:radial-gradient(1100px 560px at 8% -10%,#FDECEC 0%,transparent 60%),radial-gradient(900px 520px at 100% 110%,#E4EBF8 0%,transparent 58%),var(--tp-bg);}
 .stApp:has(.tp-lg-hero) .block-container{padding-top:1.6rem;max-width:1180px;}
 .tp-lg-hero{position:relative;overflow:hidden;border-radius:28px;padding:36px 38px;min-height:640px;color:#fff;display:flex;flex-direction:column;justify-content:space-between;
@@ -3758,7 +3758,7 @@ def pantalla_admin():
 # Referencia: dashboard de asistencia de Tiendas Premium.
 # Solo presentación: no modifica lógica ni Google Sheets.
 # =========================================================
-st.markdown("""
+html("""
 <style>
 :root {color-scheme:light;--tp-ink:#152238;--tp-muted:#7889A3;--tp-red:#EC3237;--tp-green:#00A959;--tp-line:#E1E6EE;--tp-page:#F3F5F8;}
 html,body,.stApp,[data-testid="stAppViewContainer"] {background:#F3F5F8!important;color:#152238!important;}
@@ -4407,7 +4407,7 @@ def pantalla_stock_intelligence():
     """Una sola pantalla de decisión: qué comprar, cuánto y por qué."""
     from zoneinfo import ZoneInfo
     header('Plan de Compras | Tiendas Premium', 'Decisiones de abastecimiento basadas en stock disponible y comportamiento de ventas')
-    st.markdown('''<style>
+    html('''<style>
     .psi-executive {background:#fff;border:1px solid #e0e7ef;border-left:4px solid #EC3237;border-radius:12px;padding:19px 22px;margin:10px 0 18px;box-shadow:0 4px 18px rgba(23,40,67,.035)}
     .psi-executive h3 {font-size:1.04rem;color:#172a44;margin:0 0 7px;font-weight:750}
     .psi-executive p {font-size:.94rem;color:#465872;line-height:1.6;margin:0}
@@ -4704,7 +4704,7 @@ def sidebar():
 # AJUSTE VISUAL: SIDEBAR Y ESPACIADO COMO ASISTENCIAS
 # CSS final para prevalecer sobre reglas anteriores.
 # =========================================================
-st.markdown(r"""<style>
+html(r"""<style>
 /* El dashboard inicia arriba, sin franja vacía. El login mantiene su centrado. */
 .stApp:not(:has(.tp-lg-hero)) [data-testid="stMainBlockContainer"],
 .stApp:not(:has(.tp-lg-hero)) .main .block-container,
@@ -4761,7 +4761,7 @@ st.markdown(r"""<style>
 # PARIDAD VISUAL CON ASISTENCIAS — AJUSTE DEFINITIVO
 # Corrige padding nativo de Streamlit y el menú de radio.
 # =========================================================
-st.markdown(r"""<style>
+html(r"""<style>
 /* El margen superior pertenece al contenedor de Streamlit, no a la tarjeta. */
 @media(min-width:769px){
   body .stApp:not(:has(.tp-lg-hero)) [data-testid="stMainBlockContainer"],
@@ -4908,3 +4908,72 @@ try:
 except Exception as exc:
     mostrar_error_google(exc, "carga de la pantalla")
     footer()
+
+
+# =========================================================
+# CORRECCIÓN DE LAYOUT RESPONSIVO: ancho dinámico y cero hueco superior
+# st.html inyecta CSS sin crear filas vacías en el flujo de Streamlit.
+# =========================================================
+st.html(r"""<style>
+/* Streamlit debe ocupar todo el ancho restante al cerrar la barra lateral. */
+[data-testid="stAppViewContainer"],
+[data-testid="stAppViewContainer"] > section[data-testid="stMain"],
+section[data-testid="stMain"],
+section[data-testid="stMain"] > div,
+section[data-testid="stMain"] > div[data-testid="stMainBlockContainer"] {
+  min-width:0!important;
+  box-sizing:border-box!important;
+}
+section[data-testid="stMain"] {
+  width:100%!important;
+  max-width:100%!important;
+  flex:1 1 auto!important;
+  margin-left:0!important;
+  margin-right:0!important;
+  align-self:stretch!important;
+}
+/* Ancho limitado y CENTRADO dentro del área realmente disponible, no de la ventana. */
+.stApp:not(:has(.tp-lg-hero)) section[data-testid="stMain"] [data-testid="stMainBlockContainer"],
+.stApp:not(:has(.tp-lg-hero)) section[data-testid="stMain"] .block-container {
+  width:100%!important;
+  max-width:1440px!important;
+  margin-left:auto!important;
+  margin-right:auto!important;
+  padding-top:0!important;
+  padding-bottom:2rem!important;
+  padding-left:clamp(12px,2.2vw,32px)!important;
+  padding-right:clamp(12px,2.2vw,32px)!important;
+  min-height:0!important;
+  box-sizing:border-box!important;
+}
+/* No reservar espacio para cabecera de Streamlit en la vista autenticada. */
+.stApp:not(:has(.tp-lg-hero)) section[data-testid="stMain"] {
+  padding-top:0!important;
+  justify-content:flex-start!important;
+  align-items:stretch!important;
+}
+.stApp:not(:has(.tp-lg-hero)) section[data-testid="stMain"] > div:first-child {
+  padding-top:0!important;
+  margin-top:0!important;
+}
+.stApp:not(:has(.tp-lg-hero)) [data-testid="stMainBlockContainer"] > [data-testid="stVerticalBlock"] {
+  padding-top:0!important;
+  margin-top:0!important;
+}
+/* La cabecera permanece accesible, pero no debe empujar el dashboard. */
+header[data-testid="stHeader"] {height:2.5rem!important;min-height:0!important;}
+/* Evitar que el botón flotante del menú quede sobre las tarjetas. */
+@media(min-width:769px){
+  .stApp:not(:has(.tp-lg-hero)) section[data-testid="stMain"] .block-container {
+    padding-top:.35rem!important;
+  }
+}
+@media(max-width:768px){
+  .stApp:not(:has(.tp-lg-hero)) section[data-testid="stMain"] .block-container {
+    padding-top:3.25rem!important;
+    padding-left:12px!important;
+    padding-right:12px!important;
+  }
+}
+/* El login conserva su propio ancho y disposición original. */
+</style>""")
