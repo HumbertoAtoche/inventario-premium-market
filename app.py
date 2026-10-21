@@ -4686,7 +4686,7 @@ def sidebar():
     )
     st.session_state.pagina = seleccion
 
-    st.sidebar.markdown("<br><br>", unsafe_allow_html=True)
+    st.sidebar.markdown('<div style="height:14px"></div>', unsafe_allow_html=True)
     if st.sidebar.button("Actualizar Datos", use_container_width=True, key="sb_actualizar_datos"):
         actualizar_datos()
         st.rerun()
@@ -4698,7 +4698,64 @@ def sidebar():
         st.rerun()
     st.sidebar.markdown('</div>', unsafe_allow_html=True)
 
-    st.sidebar.caption("Cache: inventario 60s · usuarios 5min · conteos/sesiones 30s")
+    
+
+# =========================================================
+# AJUSTE VISUAL: SIDEBAR Y ESPACIADO COMO ASISTENCIAS
+# CSS final para prevalecer sobre reglas anteriores.
+# =========================================================
+st.markdown(r"""<style>
+/* El dashboard inicia arriba, sin franja vacía. El login mantiene su centrado. */
+.stApp:not(:has(.tp-lg-hero)) [data-testid="stMainBlockContainer"],
+.stApp:not(:has(.tp-lg-hero)) .main .block-container,
+.stApp:not(:has(.tp-lg-hero)) .block-container {
+  padding-top: 1.05rem !important;
+  margin-top: 0 !important;
+}
+.stApp:not(:has(.tp-lg-hero)) [data-testid="stMain"] > div {margin-top:0!important;}
+/* Mismo menú de Asistencias: texto sin controles de radio visibles. */
+[data-testid="stSidebar"] {background:#FFFFFF!important;border-right:1px solid #E3E6EC!important;}
+[data-testid="stSidebar"] [data-testid="stSidebarContent"] {padding-top:1rem!important;}
+[data-testid="stSidebar"] [role="radiogroup"] {gap:2px!important;}
+[data-testid="stSidebar"] [role="radiogroup"] label {
+  position:relative!important;min-height:42px!important;
+  padding:10px 12px 10px 15px!important;border:0!important;
+  border-radius:11px!important;display:flex!important;align-items:center!important;
+  background:transparent!important;
+}
+[data-testid="stSidebar"] [role="radiogroup"] label > div:first-child,
+[data-testid="stSidebar"] [role="radiogroup"] label [data-baseweb="radio"],
+[data-testid="stSidebar"] [role="radiogroup"] label [data-testid="stRadioButton"] {
+  display:none!important;width:0!important;min-width:0!important;
+  margin:0!important;padding:0!important;
+}
+[data-testid="stSidebar"] [role="radiogroup"] label p {font-size:.88rem!important;font-weight:500!important;color:#64748B!important;line-height:1.3!important;}
+[data-testid="stSidebar"] [role="radiogroup"] label:hover {background:#F3F5F8!important;}
+[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {
+  background:#FDE9EA!important;border:0!important;
+}
+[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked)::before {
+  content:"";position:absolute;left:0;top:8px;bottom:8px;width:3px;
+  border-radius:3px;background:#EC3237;
+}
+[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) p {color:#C9262B!important;font-weight:700!important;}
+/* Identidad y usuario con el mismo tratamiento compacto de Asistencias. */
+[data-testid="stSidebar"] .tp-brand {padding:2px 2px 16px!important;text-align:left!important;}
+[data-testid="stSidebar"] .tp-brand-name {font-weight:800!important;font-size:1rem!important;letter-spacing:-.01em!important;}
+[data-testid="stSidebar"] .tp-brand-sub {font-size:.72rem!important;color:#64748B!important;}
+[data-testid="stSidebar"] .tp-user {background:#F6F7FA!important;border:1px solid #E3E6EC!important;border-radius:14px!important;padding:12px!important;margin-bottom:18px!important;}
+[data-testid="stSidebar"] .tp-user b {color:#0F172A!important;font-size:.84rem!important;}
+[data-testid="stSidebar"] .tp-user span {color:#64748B!important;font-size:.7rem!important;}
+[data-testid="stSidebar"] .tp-avatar {background:#EC3237!important;color:#FFFFFF!important;}
+/* El pie técnico no distrae en la navegación principal. */
+[data-testid="stSidebar"] [data-testid="stCaptionContainer"] {font-size:.69rem!important;opacity:.75;}
+@media(max-width:768px){
+ .stApp:not(:has(.tp-lg-hero)) [data-testid="stMainBlockContainer"],
+ .stApp:not(:has(.tp-lg-hero)) .main .block-container,
+ .stApp:not(:has(.tp-lg-hero)) .block-container {padding-top:.7rem!important;padding-left:12px!important;padding-right:12px!important;}
+ [data-testid="stSidebar"] [role="radiogroup"] label {min-height:44px!important;}
+}
+</style>""", unsafe_allow_html=True)
 
 # =========================================================
 # ESTADO / ARRANQUE
