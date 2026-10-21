@@ -2,6 +2,11 @@ import streamlit as st
 import pandas as pd
 import gspread
 import hashlib
+import hmac
+import secrets
+import math
+import json
+import zipfile
 import io
 import os
 import re
@@ -789,7 +794,27 @@ def formato_soles(valor):
 
 
 def hash_password(password):
-    return hashlib.sha256(str(password).encode("utf-8")).hexdigest()
+    """PBKDF2 para usuarios nuevos. Mantiene compatibilidad de lectura con SHA256 legado."""
+    salt = secrets.token_bytes(16)
+    rondas = 310000
+    derivada = hashlib.pbkdf2_hmac("sha256", str(password).encode("utf-8"), salt, rondas)
+    return f"pbkdf2_sha256${rondas}${salt.hex()}${derivada.hex()}"
+
+
+def verificar_password(password, guardada):
+    guardada = str(guardada or "").strip()
+    if guardada.startswith("pbkdf2_sha256$"):
+        try:
+            _, rondas, salt, esperado = guardada.split("$", 3)
+            derivada = hashlib.pbkdf2_hmac("sha256", str(password).encode("utf-8"), bytes.fromhex(salt), int(rondas))
+            return hmac.compare_digest(derivada, bytes.fromhex(esperado))
+        except (ValueError, TypeError):
+            return False
+    if len(guardada) == 64:
+        return hmac.compare_digest(hashlib.sha256(str(password).encode("utf-8")).hexdigest(), guardada)
+    # Compatibilidad transitoria con contraseñas antiguas en texto plano.
+    return bool(guardada) and hmac.compare_digest(str(password), guardada)
+
 
 
 def generar_id_sesion():
@@ -1523,7 +1548,7 @@ def autenticar(usuario, password):
     if str(registro["Estado"]).strip().lower() not in ["activo", "activa", "1", "true", "sí", "si"]:
         return None
     guardada = str(registro["Password"]).strip()
-    if hash_password(password) == guardada or (password == guardada and len(guardada) != 64):
+    if verificar_password(password, guardada):
         return registro.to_dict()
     return None
 
@@ -3349,8 +3374,8 @@ def pantalla_admin():
                     st.error("Completa todos los campos.")
                 elif password != confirmar:
                     st.error("Las contraseñas no coinciden.")
-                elif len(password) < 6:
-                    st.error("La contraseña debe tener al menos 6 caracteres.")
+                elif len(password) < 10:
+                    st.error("La contraseña debe tener al menos 10 caracteres.")
                 else:
                     try:
                         crear_usuario(usuario, nombre, rol, password)
@@ -3470,6 +3495,262 @@ html,body,.stApp,[data-testid="stAppViewContainer"] {background:#F3F5F8!importan
 </style>
 """,unsafe_allow_html=True)
 
+
+# =========================================================
+# ETAPA 5 — INTELIGENCIA DE COMPRAS / VENTAS
+# Hoja VentasProductos: conserva exactamente las 25 columnas del reporte.
+# =========================================================
+VENTAS_HOJA = "VentasProductos"
+VENTAS_COLUMNAS = [
+    "N", "FECHA/HORA", "COMPROBANTE", "CÓDIGO DE BARRA", "CLIENTE",
+    "PRODUCTO", "OBSERVACIÓN", "VARIANTE", "EQUIVALENCIA", "USUARIOS",
+    "EMPLEADOS", "ALMACÉN", "TIPO", "SKU", "CATEGORÍA", "SUBCATEGORÍA",
+    "U.M.", "PRECIO PROMEDIO", "COSTO*", "MONEDA", "CANTIDAD EQUIVALENCIA",
+    "PRECIO X UNIDAD", "DESCUENTO", "CANTIDAD", "TOTAL",
+]
+
+@st.cache_resource(show_spinner=False)
+def hoja_ventas():
+    return hoja_control(VENTAS_HOJA, VENTAS_COLUMNAS)
+
+@st.cache_data(ttl=120, show_spinner=False)
+def cargar_ventas():
+    hoja = hoja_ventas()
+    valores = hoja.get_all_values()
+    if not valores:
+        return pd.DataFrame(columns=VENTAS_COLUMNAS)
+    cabecera = [str(v).strip() for v in valores[0]]
+    if cabecera[:len(VENTAS_COLUMNAS)] != VENTAS_COLUMNAS:
+        raise ValueError("La hoja VentasProductos debe comenzar en la fila 1 con los 25 encabezados del reporte, desde N hasta TOTAL. No copies la fila de título general del Excel.")
+    datos = [r[:len(VENTAS_COLUMNAS)] + [""] * max(0, len(VENTAS_COLUMNAS) - len(r)) for r in valores[1:] if any(str(x).strip() for x in r)]
+    return pd.DataFrame(datos, columns=VENTAS_COLUMNAS)
+
+
+def preparar_ventas(df):
+    if df.empty:
+        d = df.copy()
+        for col in ["Fecha", "Dia", "Clave", "Cantidad", "CantidadValida", "VentaTotal", "CostoTotal", "MargenTotal"]:
+            d[col] = pd.Series(dtype="object")
+        return d
+    d = df.copy()
+    d["Fecha"] = pd.to_datetime(d["FECHA/HORA"].astype(str).str.strip(), format="%d-%m-%Y %H:%M", errors="coerce")
+    fallos = d["Fecha"].isna()
+    if fallos.any():
+        d.loc[fallos, "Fecha"] = pd.to_datetime(d.loc[fallos, "FECHA/HORA"], dayfirst=True, errors="coerce")
+    d = d[d["Fecha"].notna()].copy()
+    d["Dia"] = d["Fecha"].dt.normalize()
+    d["Clave"] = d["CÓDIGO DE BARRA"].astype(str).str.strip()
+    d["Clave"] = d["Clave"].where(d["Clave"] != "", d["SKU"].astype(str).str.strip())
+    d["Clave"] = d["Clave"].where(d["Clave"] != "", d["PRODUCTO"].astype(str).str.strip())
+    d["Cantidad"] = pd.to_numeric(d["CANTIDAD"].astype(str).str.replace(",", ".", regex=False), errors="coerce")
+    d["VentaTotal"] = pd.to_numeric(d["TOTAL"].astype(str).str.replace(",", ".", regex=False), errors="coerce")
+    d["CostoTotal"] = pd.to_numeric(d["COSTO*"].astype(str).str.replace(",", ".", regex=False), errors="coerce")
+    d["MargenTotal"] = d["VentaTotal"] - d["CostoTotal"]
+    d["CantidadValida"] = d["Cantidad"].notna() & (d["Cantidad"] > 0)
+    return d
+
+
+def diagnostico_ventas(df):
+    if df.empty:
+        return 0, 0, 0
+    return len(df), int(df["CantidadValida"].sum()), int((~df["CantidadValida"]).sum())
+
+
+def resumen_demanda(df, inventario, dias_entrega, dias_seguridad, ventana, objetivo_servicio):
+    """Demanda por días calendario, sin extrapolar ventas ausentes como ceros confiables."""
+    if df.empty:
+        return pd.DataFrame()
+    fecha_fin = df["Dia"].max()
+    inicio = fecha_fin - pd.Timedelta(days=ventana - 1)
+    recientes = df[(df["Dia"] >= inicio) & (df["Dia"] <= fecha_fin)].copy()
+    if recientes.empty:
+        return pd.DataFrame()
+    # Sólo se consideran días de operación conocidos; los días sin exportación
+    # pueden ser días sin ventas o días faltantes, y requieren confirmación.
+    dias_base = max(1, min(ventana, (fecha_fin - df["Dia"].min()).days + 1))
+    recientes = recientes[recientes["CantidadValida"]].copy()
+    if recientes.empty:
+        return pd.DataFrame()
+    a = recientes.groupby("Clave", as_index=False).agg(
+        Producto=("PRODUCTO", "first"), Categoria=("CATEGORÍA", "first"),
+        Unidades=("Cantidad", "sum"), Lineas=("Clave", "size"),
+        VentaTotal=("VentaTotal", "sum"), CostoTotal=("CostoTotal", "sum"),
+        DiasConVenta=("Dia", "nunique"),
+    )
+    a["DemandaDiaria"] = a["Unidades"] / dias_base
+    a["MargenTotal"] = a["VentaTotal"] - a["CostoTotal"]
+    a["MargenPorcentaje"] = (100 * a["MargenTotal"] / a["VentaTotal"].replace(0, float("nan"))).round(1)
+    # Incluye días sin ventas del producto dentro de la ventana, no solo días con venta.
+    diario = recientes.groupby(["Clave", "Dia"])["Cantidad"].sum().reset_index()
+    suma_cuadrados = diario.assign(Cuadrado=diario["Cantidad"] ** 2).groupby("Clave")["Cuadrado"].sum()
+    # Desviación poblacional con días cero, suponiendo que la carga del periodo es completa.
+    a["DesviacionDiaria"] = ((a["Clave"].map(suma_cuadrados).fillna(0) / dias_base - a["DemandaDiaria"] ** 2).clip(lower=0)) ** 0.5
+    z = {90:1.282, 95:1.645, 98:2.054, 99:2.326}.get(int(objetivo_servicio), 1.645)
+    a["StockSeguridad"] = (z * a["DesviacionDiaria"] * math.sqrt(max(1, dias_entrega)) + a["DemandaDiaria"] * dias_seguridad).apply(math.ceil)
+    a["PuntoPedido"] = (a["DemandaDiaria"] * dias_entrega + a["StockSeguridad"]).apply(math.ceil)
+    a["StockObjetivo"] = (a["DemandaDiaria"] * (dias_entrega + dias_seguridad + 7) + a["StockSeguridad"]).apply(math.ceil)
+    inv = inventario.copy()
+    inv["Clave"] = inv["CodigoBarras"].astype(str).str.strip()
+    inv["Clave"] = inv["Clave"].where(inv["Clave"] != "", inv["CodigoProducto"].astype(str).str.strip())
+    inv = inv.groupby("Clave", as_index=False).agg(StockActual=("StockSistema", "sum"), CostoUnitario=("CostoUnitario", "mean"))
+    a = a.merge(inv, on="Clave", how="left", indicator="VinculoInventario")
+    a["VinculadoInventario"] = a["VinculoInventario"].eq("both")
+    a["StockActual"] = a["StockActual"].fillna(0)
+    a["CostoUnitario"] = a["CostoUnitario"].fillna(0)
+    a["DiasCobertura"] = a["StockActual"] / a["DemandaDiaria"].replace(0, float("nan"))
+    a["CompraSugerida"] = (a["StockObjetivo"] - a["StockActual"]).clip(lower=0).apply(math.ceil)
+    a.loc[a["StockActual"] > a["PuntoPedido"], "CompraSugerida"] = 0
+    a["InversionSugerida"] = a["CompraSugerida"] * a["CostoUnitario"]
+    a["Estado"] = "Adecuado"
+    a.loc[a["StockActual"] <= a["PuntoPedido"], "Estado"] = "Reponer"
+    a.loc[a["StockActual"] <= 0, "Estado"] = "Sin stock"
+    a.loc[a["DiasCobertura"] > 60, "Estado"] = "Sobrestock posible"
+    a.loc[~a["VinculadoInventario"], "Estado"] = "Sin vincular inventario"
+    a.loc[~a["VinculadoInventario"], "CompraSugerida"] = 0
+    a.loc[~a["VinculadoInventario"], "InversionSugerida"] = 0
+    return a.sort_values(["Estado", "InversionSugerida"], ascending=[True, False])
+
+
+def _leer_reporte_excel(archivo):
+    bruto = pd.read_excel(archivo, sheet_name="ventas_productos", header=0, dtype=str)
+    bruto.columns = [str(c).strip() for c in bruto.columns]
+    if not all(c in bruto.columns for c in VENTAS_COLUMNAS):
+        bruto = pd.read_excel(archivo, sheet_name="ventas_productos", header=1, dtype=str)
+        bruto.columns = [str(c).strip() for c in bruto.columns]
+    faltan = [c for c in VENTAS_COLUMNAS if c not in bruto.columns]
+    if faltan:
+        raise ValueError("Faltan encabezados del archivo: " + ", ".join(faltan))
+    return bruto[VENTAS_COLUMNAS].fillna("").astype(str)
+
+
+def pantalla_compras_inteligentes():
+    header("Compras Inteligentes", "Ventas, rotación, quiebres de stock y capital inmovilizado")
+    if str(st.session_state.usuario.get("Rol", "")).upper() != "ADMIN":
+        st.error("Vista reservada para administración.")
+        return
+    tab1, tab2, tab3 = st.tabs(["📊 Demanda y reposición", "📥 Cargar ventas", "🛡️ Calidad de datos"])
+    with tab2:
+        st.markdown("### Carga diaria desde el sistema de ventas")
+        st.info("La hoja VentasProductos utiliza los 25 encabezados de tu Excel, desde N hasta TOTAL. Pega los encabezados en la fila 1 de Google Sheets y los registros desde la fila 2. No copies notas ni títulos generales.")
+        st.caption("El importador permite cargar el Excel directamente, pero no modifica el inventario ni las ventas originales.")
+        try:
+            ws = hoja_ventas()
+            st.success("Hoja VentasProductos disponible en BD_Inventario_PremiumMarket.")
+        except Exception as exc:
+            st.error(f"No se pudo preparar VentasProductos: {exc}")
+            return
+        archivo = st.file_uploader("Selecciona el Excel de ventas", type=["xlsx"], key="ventas_excel_etapa5")
+        if archivo is not None:
+            try:
+                nuevo = _leer_reporte_excel(archivo)
+                st.write(f"Filas del archivo: {len(nuevo):,}")
+                st.dataframe(nuevo.head(12), use_container_width=True, hide_index=True)
+                if st.button("Agregar únicamente registros no importados", type="primary", key="ventas_importar"):
+                    existente = cargar_ventas()
+                    # Identidad multiconjunto: mantiene líneas idénticas repetidas dentro
+                    # de una misma exportación y evita reimportarlas al repetir el archivo.
+                    columnas_id = ["FECHA/HORA", "COMPROBANTE", "CÓDIGO DE BARRA", "PRODUCTO", "SKU", "COSTO*", "PRECIO PROMEDIO", "CANTIDAD", "TOTAL"]
+                    def llaves_con_ocurrencia(frame):
+                        if frame.empty: return []
+                        b = frame[columnas_id].fillna("").astype(str).apply(lambda r: "\x1f".join(r), axis=1)
+                        return list(zip(b, b.groupby(b).cumcount()))
+                    previos = set(llaves_con_ocurrencia(existente))
+                    claves = llaves_con_ocurrencia(nuevo)
+                    filas = [list(fila) for i, fila in enumerate(nuevo.itertuples(index=False, name=None)) if claves[i] not in previos]
+                    if filas:
+                        ws.append_rows(filas, value_input_option="RAW")
+                    cargar_ventas.clear()
+                    registrar_auditoria("IMPORTACION_VENTAS", f"{len(filas)} filas nuevas; archivo {archivo.name}")
+                    st.success(f"Importadas {len(filas)} filas nuevas. {len(nuevo)-len(filas)} filas ya estaban registradas.")
+            except Exception as exc:
+                st.error(f"No se pudo leer/importar el Excel: {exc}")
+    try:
+        ventas = preparar_ventas(cargar_ventas())
+    except Exception as exc:
+        st.error(f"Error al leer ventas: {exc}")
+        return
+    n, validas, sin_cantidad = diagnostico_ventas(ventas)
+    with tab3:
+        k1,k2,k3=st.columns(3)
+        k1.metric("Líneas de venta",f"{n:,}")
+        k2.metric("Con cantidad válida",f"{validas:,}")
+        k3.metric("Sin cantidad confiable",f"{sin_cantidad:,}")
+        if n:
+            st.write("Período:",ventas["Dia"].min().strftime("%d/%m/%Y"),"a",ventas["Dia"].max().strftime("%d/%m/%Y"))
+            st.write("Días con ventas:",ventas["Dia"].nunique())
+            if sin_cantidad:
+                st.warning("CANTIDAD está vacía, es cero o inválida en parte de los datos. No se generarán pedidos automáticos con cantidades incompletas.")
+                st.dataframe(ventas.loc[~ventas["CantidadValida"], ["FECHA/HORA", "COMPROBANTE", "PRODUCTO", "CANTIDAD"]].head(100),use_container_width=True,hide_index=True)
+    with tab1:
+        if not n:
+            st.info("Primero importa el reporte en Cargar ventas o pega las ventas en Google Sheets.")
+            return
+        k1,k2,k3=st.columns(3)
+        k1.metric("Registros",f"{n:,}")
+        k2.metric("Productos vendidos",f"{ventas['Clave'].nunique():,}")
+        k3.metric("Días registrados",f"{ventas['Dia'].nunique():,}")
+        if sin_cantidad:
+            st.warning(f"Hay {sin_cantidad:,} registros sin cantidad vendida confiable. Se muestra el ranking de frecuencia, pero se bloquean las recomendaciones numéricas de compra para evitar pedidos incorrectos.")
+            frecuencia=ventas.groupby(["Clave","PRODUCTO"],as_index=False).size().rename(columns={"size":"Líneas de venta"}).sort_values("Líneas de venta",ascending=False)
+            st.dataframe(frecuencia.head(100),use_container_width=True,hide_index=True)
+            st.download_button("Descargar frecuencia (Excel)",exportar_excel({"Frecuencia":frecuencia}),file_name="frecuencia_ventas.xlsx",mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            return
+        c1,c2,c3,c4=st.columns(4)
+        ventana=c1.selectbox("Ventana de demanda (días)",[7,14,30,60,90],index=2)
+        entrega=c2.number_input("Plazo proveedor (días)",min_value=1,max_value=90,value=3)
+        seguridad=c3.number_input("Días de colchón",min_value=0,max_value=60,value=4)
+        servicio=c4.selectbox("Nivel de servicio",[90,95,98,99],index=1)
+        st.caption("Parámetros generales iniciales. En una versión posterior se podrán configurar por proveedor y producto.")
+        inventario=cargar_inventario()
+        resumen=resumen_demanda(ventas,inventario,int(entrega),int(seguridad),int(ventana),int(servicio))
+        if resumen.empty:
+            st.info("No hay ventas válidas en la ventana seleccionada.")
+            return
+        if (~resumen["VinculadoInventario"]).any():
+            st.warning(f"{int((~resumen['VinculadoInventario']).sum())} productos vendidos no se vincularon al inventario por código de barras/SKU. No se sugieren compras para ellos hasta revisar la correspondencia.")
+        st.warning("Proyección orientativa: confirma que cada día esté cargado. CANTIDAD representa las unidades vendidas; CANTIDAD EQUIVALENCIA no se usa como cantidad base. Los días sin registro se consideran dentro del período; si faltan exportaciones, la demanda quedará subestimada.")
+        c1,c2,c3=st.columns(3)
+        c1.metric("Productos a revisar",int((resumen["CompraSugerida"]>0).sum()))
+        c2.metric("Sin stock",int((resumen["StockActual"]<=0).sum()))
+        c3.metric("Inversión sugerida",formato_soles(resumen["InversionSugerida"].sum()))
+        ver=resumen[["Producto","Categoria","Unidades","VentaTotal","CostoTotal","MargenTotal","MargenPorcentaje","DemandaDiaria","StockActual","DiasCobertura","PuntoPedido","StockSeguridad","StockObjetivo","CompraSugerida","InversionSugerida","Estado"]].copy()
+        st.dataframe(ver,use_container_width=True,hide_index=True)
+        st.download_button("Descargar plan de reposición (Excel)",exportar_excel({"Reposicion":ver}),file_name="plan_reposicion.xlsx",mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+
+def pantalla_seguridad_y_respaldo():
+    header("Seguridad y respaldos", "Resguardo de datos y control de accesos")
+    if str(st.session_state.usuario.get("Rol", "")).upper() != "ADMIN":
+        st.error("Solo administración puede acceder.")
+        return
+    st.markdown("### Copia de seguridad de Google Sheets")
+    st.caption("Genera un respaldo descargable de las hojas operativas. No incluye contraseñas de Usuarios por seguridad.")
+    if st.button("Preparar respaldo", key="e5_preparar_respaldo"):
+        try:
+            libro=conectar_google()
+            nombres=[x.title for x in libro.worksheets() if x.title != "Usuarios"]
+            contenido={}
+            for nombre in nombres:
+                filas=libro.worksheet(nombre).get_all_values()
+                if filas:
+                    ancho=max(len(x) for x in filas)
+                    contenido[nombre]=pd.DataFrame([r+[""]*(ancho-len(r)) for r in filas[1:]],columns=[f"{v or 'Col'+str(i)}" for i,v in enumerate(filas[0]+[""]*(ancho-len(filas[0])))] )
+            st.session_state["respaldo_e5"] = exportar_excel(contenido)
+            registrar_auditoria("RESPALDO_GENERADO",f"Hojas: {len(contenido)}")
+            st.success("Respaldo generado. Descárgalo y guárdalo en un lugar seguro.")
+        except Exception as exc:
+            st.error(f"No se pudo generar el respaldo: {exc}")
+    if st.session_state.get("respaldo_e5"):
+        st.download_button("Descargar respaldo XLSX",st.session_state["respaldo_e5"],file_name=f"respaldo_premium_{datetime.now():%Y%m%d_%H%M}.xlsx",mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    st.info("La recuperación debe realizarse con supervisión administrativa, restaurando primero una copia de la hoja. Esta versión no sobrescribe automáticamente datos productivos.")
+    st.markdown("### Estado de la plataforma")
+    st.write("Autenticación: PBKDF2 para contraseñas nuevas; acceso compatible con credenciales anteriores.")
+    st.write("Auditoría: registro de operaciones principales en la hoja Auditoria.")
+    st.warning("La prevención absoluta de conflictos entre dos usuarios simultáneos no es transaccional en Google Sheets. Para garantizarla será necesario migrar los registros críticos a PostgreSQL.")
+    st.markdown("### Ruta de migración a PostgreSQL")
+    st.caption("1. Definir tablas normalizadas de productos, sesiones, conteos, zonas, ventas y usuarios. 2. Importar y validar históricos. 3. Aplicar restricciones únicas y transacciones. 4. Migrar operaciones de escritura con pruebas paralelas. 5. Activar backups automáticos y restauración verificada.")
+
+
 # =========================================================
 # SIDEBAR
 # =========================================================
@@ -3508,6 +3789,8 @@ def sidebar():
     """, unsafe_allow_html=True)
 
     opciones = ["Inicio", "Precios", "Sesión", "Zonas", "Inventario", "Resultados", "Análisis"]
+    if rol == "ADMIN":
+        opciones += ["Compras Inteligentes", "Seguridad y respaldos"]
     if rol == "ADMIN":
         opciones.append("Administración")
 
@@ -3608,6 +3891,10 @@ try:
         pantalla_resultados()
     elif pagina == "Análisis":
         pantalla_analisis()
+    elif pagina == "Compras Inteligentes":
+        pantalla_compras_inteligentes()
+    elif pagina == "Seguridad y respaldos":
+        pantalla_seguridad_y_respaldo()
     elif pagina == "Administración":
         if str(st.session_state.usuario.get("Rol", "")).upper() == "ADMIN":
             pantalla_admin()
