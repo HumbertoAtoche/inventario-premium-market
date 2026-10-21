@@ -107,6 +107,13 @@ HORAS_SESION_ALERTA = 24       # alerta si una sesión lleva más de 24 h abiert
 MAX_INTENTOS_LOGIN = 5         # intentos fallidos antes de bloquear el ingreso
 BLOQUEO_LOGIN_SEGUNDOS = 300   # duración del bloqueo (5 minutos)
 
+# ETAPA 3 — ZONAS DE TRABAJO (sin asignar productos de antemano)
+ZONAS_PREDETERMINADAS = ["Góndola Pared Derecha", "Góndola Central 1", "Góndola Central 2", "Máquinas de Frío y Bebidas", "Mostrador", "Góndola de Snacks", "Bolsas de Regalo"]
+HOJA_ZONAS = "ZonasInventario"
+HEADERS_ZONAS = ["IdSesion", "Zona", "Responsable", "Estado", "FechaInicio", "FechaFin", "ActualizadoPor"]
+HOJA_CONTEOS_ZONA = "ConteosPorZona"
+HEADERS_CONTEOS_ZONA = ["IdSesion", "FechaHora", "Usuario", "NombreUsuario", "Zona", "CodigoBarras", "CodigoProducto", "Producto", "Categoria", "Sucursal", "StockSistema", "StockFisico", "CostoUnitario", "MetodoConteo", "Observacion", "TipoRegistro", "IdRegistro"]
+
 # =========================================================
 # ESTILOS
 # =========================================================
@@ -990,12 +997,19 @@ def cargar_conteos():
     records = ws.get_all_records()
     df = pd.DataFrame(records)
     df = normalizar_df(df, HEADERS_CONTEO)
-    if df.empty:
-        return df
     for col in ["IdSesion", "FechaHora", "Usuario", "NombreUsuario", "CodigoBarras", "CodigoProducto", "Producto", "Categoria", "Sucursal", "TipoDiferencia", "MetodoConteo", "Observacion"]:
         df[col] = df[col].fillna("").astype(str).str.strip()
     for col in ["StockSistema", "StockFisico", "Diferencia", "CostoUnitario", "ValorFaltante", "ValorSobrante", "CostoDiferencia"]:
         df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
+    zonas = consolidar_conteos_zona()
+    if not zonas.empty:
+        if not df.empty:
+            df = df.copy()
+            df["_join"] = df["IdSesion"].astype(str) + "|" + df["Sucursal"].astype(str).str.casefold() + "|" + _claves_df(df).astype(str).str.casefold()
+            zonas["_join"] = zonas["IdSesion"].astype(str) + "|" + zonas["Sucursal"].astype(str).str.casefold() + "|" + _claves_df(zonas).astype(str).str.casefold()
+            df = df[~df["_join"].isin(set(zonas["_join"]))].drop(columns="_join")
+            zonas = zonas.drop(columns="_join")
+        df = pd.concat([df, zonas], ignore_index=True)
     return df
 
 
@@ -1180,6 +1194,271 @@ def guardar_universo_sesion(id_sesion, sucursal):
         ws.append_rows(rows[i:i+300], value_input_option="RAW")
     cargar_universo.clear()
 
+# ETAPA 2 — configuración individual, validaciones y prioridad histórica
+HOJA_CONFIG_CONTEO = "ConfiguracionConteo"
+HEADERS_CONFIG_CONTEO = ["Usuario", "ConteoCiego", "ActualizadoPor", "FechaActualizacion"]
+HOJA_RECONTEOS = "ControlReconteos"
+HEADERS_RECONTEOS = ["IdSesion", "CodigoBarras", "CodigoProducto", "Sucursal", "FechaSolicitud", "SolicitadoPor", "Motivo", "Estado", "FechaResolucion", "ResueltoPor", "ConteoAnterior", "ConteoNuevo"]
+
+def _verdadero(v):
+    return str(v).strip().lower() in ("1", "true", "si", "sí", "activo", "on")
+
+@st.cache_data(ttl=45, show_spinner=False)
+def cargar_config_conteo():
+    return normalizar_df(pd.DataFrame(hoja_control(HOJA_CONFIG_CONTEO, HEADERS_CONFIG_CONTEO).get_all_records()), HEADERS_CONFIG_CONTEO)
+
+@st.cache_data(ttl=30, show_spinner=False)
+def cargar_control_reconteos():
+    return normalizar_df(pd.DataFrame(hoja_control(HOJA_RECONTEOS, HEADERS_RECONTEOS).get_all_records()), HEADERS_RECONTEOS)
+
+def conteo_ciego_usuario(usuario):
+    if str(usuario.get("Rol", "")).upper() == "ADMIN":
+        return False
+    d = cargar_config_conteo()
+    fila = d[d["Usuario"].astype(str).str.casefold() == str(usuario.get("Usuario", "")).casefold()]
+    return _verdadero(fila.iloc[-1]["ConteoCiego"]) if not fila.empty else bool(CONTEO_CIEGO)
+
+def configurar_conteo_ciego(nombre_usuario, activo, administrador):
+    ws = hoja_control(HOJA_CONFIG_CONTEO, HEADERS_CONFIG_CONTEO)
+    filas = ws.get_all_values()
+    objetivo = str(nombre_usuario).strip().casefold()
+    numero = next((i for i, r in enumerate(filas[1:], 2) if r and r[0].strip().casefold() == objetivo), None)
+    registro = [nombre_usuario, "SI" if activo else "NO", administrador, ahora()]
+    if numero:
+        ws.update(f"A{numero}:D{numero}", [registro], value_input_option="RAW")
+    else:
+        ws.append_row(registro, value_input_option="RAW")
+    cargar_config_conteo.clear()
+    registrar_auditoria("CONFIG_CONTEO_CIEGO", f"{nombre_usuario}: {'SI' if activo else 'NO'}")
+
+def _clave_registro(p):
+    return (str(p.get("Sucursal", "")).strip().casefold(),
+            limpiar_codigo(p.get("CodigoBarras", "")) or limpiar_codigo(p.get("CodigoProducto", "")) or str(p.get("Producto", "")).strip())
+
+def solicitudes_producto(id_sesion, producto):
+    d = cargar_control_reconteos()
+    if d.empty:
+        return d
+    clave = _clave_registro(producto)
+    return d[(d["IdSesion"].astype(str) == str(id_sesion)) &
+             (d.apply(_clave_registro, axis=1) == clave)]
+
+def solicitud_pendiente(id_sesion, producto):
+    d = solicitudes_producto(id_sesion, producto)
+    return not d.empty and str(d.iloc[-1]["Estado"]).upper() == "PENDIENTE"
+
+def solicitar_reconteo(sesion, producto, usuario, motivo):
+    if not motivo.strip():
+        raise ValueError("El motivo del reconteo es obligatorio.")
+    if solicitud_pendiente(sesion["IdSesion"], producto):
+        return
+    ws = hoja_control(HOJA_RECONTEOS, HEADERS_RECONTEOS)
+    ws.append_row([sesion["IdSesion"], limpiar_codigo(producto.get("CodigoBarras", "")),
+                   limpiar_codigo(producto.get("CodigoProducto", "")), producto.get("Sucursal", ""),
+                   ahora(), usuario.get("Usuario", ""), motivo.strip(), "PENDIENTE", "", "", "", ""], value_input_option="RAW")
+    cargar_control_reconteos.clear()
+    registrar_auditoria("SOLICITAR_RECONTEO", f"{producto.get('Producto', '')} · {motivo}", sesion["IdSesion"])
+
+def resolver_reconteo(sesion, producto, usuario, anterior, nuevo):
+    ws = hoja_control(HOJA_RECONTEOS, HEADERS_RECONTEOS)
+    valores = ws.get_all_values()
+    clave = _clave_registro(producto)
+    for n in range(len(valores)-1, 0, -1):
+        r = valores[n]
+        if len(r) >= 8 and r[0] == str(sesion["IdSesion"]) and _clave_registro(dict(zip(HEADERS_RECONTEOS, r))) == clave and r[7] == "PENDIENTE":
+            ws.update(f"H{n+1}:L{n+1}", [["RESUELTO", ahora(), usuario.get("Usuario", ""), anterior, nuevo]], value_input_option="RAW")
+            cargar_control_reconteos.clear()
+            return
+
+def pendientes_anteriores(sesion):
+    sesiones = cargar_sesiones()
+    anteriores = sesiones[(sesiones["IdSesion"].astype(str) != str(sesion["IdSesion"])) &
+                         (sesiones["Sucursal"].astype(str).str.strip().str.casefold() == str(sesion["Sucursal"]).strip().casefold()) &
+                         (sesiones["Estado"].astype(str).str.upper() == "CERRADA")].copy()
+    if anteriores.empty:
+        return pd.DataFrame()
+    anteriores = anteriores.sort_values("FechaInicio", ascending=False)
+    previa = anteriores.iloc[0]
+    anterior = estado_cobertura(previa["IdSesion"], previa["Sucursal"])
+    actual = estado_cobertura(sesion["IdSesion"], sesion["Sucursal"])
+    if anterior.empty or actual.empty:
+        return pd.DataFrame()
+    claves = set(clave_producto(anterior[anterior["EstadoVerificacion"].isin(["PENDIENTE", "NO LOCALIZADO"])]))
+    resultado = actual[clave_producto(actual).isin(claves) & actual["EstadoVerificacion"].isin(["PENDIENTE", "NO LOCALIZADO"])].copy()
+    resultado["SesionAnterior"] = previa["NombreSesion"]
+    return resultado
+
+# =========================================================
+# ETAPA 3 — ZONAS, ASIGNACIONES Y CONSOLIDACIÓN
+# =========================================================
+@st.cache_data(ttl=15, show_spinner=False)
+def cargar_zonas():
+    return normalizar_df(pd.DataFrame(hoja_control(HOJA_ZONAS, HEADERS_ZONAS).get_all_records()), HEADERS_ZONAS)
+
+@st.cache_data(ttl=15, show_spinner=False)
+def cargar_conteos_zona():
+    df = normalizar_df(pd.DataFrame(hoja_control(HOJA_CONTEOS_ZONA, HEADERS_CONTEOS_ZONA).get_all_records()), HEADERS_CONTEOS_ZONA)
+    for c in ("StockSistema", "StockFisico", "CostoUnitario"):
+        df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0)
+    return df
+
+def zonas_sesion(id_sesion):
+    d = cargar_zonas()
+    return d[d["IdSesion"].astype(str) == str(id_sesion)].copy()
+
+def zona_usuario(sesion, usuario):
+    zona = st.session_state.get("zona_activa", "")
+    d = zonas_sesion(sesion["IdSesion"])
+    match = d[d["Zona"] == zona]
+    if match.empty:
+        return None
+    z = match.iloc[-1].to_dict()
+    if str(usuario.get("Rol", "")).upper() != "ADMIN" and str(z["Responsable"]).strip().casefold() != str(usuario.get("Usuario", "")).strip().casefold():
+        return None
+    return z if str(z["Estado"]).upper() == "EN PROCESO" else None
+
+def ultimo_conteo_zona(id_sesion, zona, producto):
+    d = cargar_conteos_zona()
+    d = d[(d["IdSesion"].astype(str) == str(id_sesion)) & (d["Zona"] == zona)]
+    if d.empty:
+        return None
+    k = _clave_registro(producto)
+    d = d[d.apply(lambda r: _clave_registro(r) == k, axis=1)]
+    return d.iloc[-1].to_dict() if not d.empty else None
+
+def guardar_conteo_zona(sesion, usuario, producto, fisico, metodo, observacion, reconteo):
+    zona = zona_usuario(sesion, usuario)
+    if zona is None:
+        raise ValueError("Selecciona una zona asignada y abierta antes de guardar.")
+    if str(sesion.get("Estado", "")).upper() != "ABIERTA":
+        raise ValueError("La sesión está cerrada.")
+    cargar_conteos_zona.clear()
+    previo = ultimo_conteo_zona(sesion["IdSesion"], zona["Zona"], producto)
+    # No combinar un conteo general previo con uno por zonas sin conciliación explícita.
+    raw = normalizar_df(pd.DataFrame(obtener_hoja("conteos").get_all_records()), HEADERS_CONTEO)
+    if not raw.empty:
+        anteriores = raw[raw["IdSesion"].astype(str) == str(sesion["IdSesion"])]
+        if not anteriores.empty and any(_clave_registro(r) == _clave_registro(producto) for _, r in anteriores.iterrows()):
+            raise ValueError("Este producto ya tiene un conteo general en la sesión. No puede mezclarse con el conteo por zonas; utiliza una nueva sesión para ese producto.")
+    if previo and not reconteo:
+        raise ValueError("Este producto ya fue contado en esta zona. Usa Reconteo para corregirlo.")
+    if not previo and reconteo:
+        raise ValueError("No existe conteo previo en esta zona.")
+    if reconteo and not observacion.strip():
+        raise ValueError("Indica el motivo del reconteo.")
+    from uuid import uuid4
+    fila = [sesion["IdSesion"], ahora(), usuario["Usuario"], usuario["NombreCompleto"], zona["Zona"], limpiar_codigo(producto.get("CodigoBarras", "")), limpiar_codigo(producto.get("CodigoProducto", "")), producto.get("Producto", ""), producto.get("Categoria", ""), producto.get("Sucursal", ""), limpiar_numero(producto.get("StockSistema", 0)), float(fisico), limpiar_numero(producto.get("CostoUnitario", 0)), metodo, observacion.strip(), "RECONTEO" if reconteo else "CONTEO", str(uuid4())]
+    hoja_control(HOJA_CONTEOS_ZONA, HEADERS_CONTEOS_ZONA).append_row(fila, value_input_option="RAW")
+    cargar_conteos_zona.clear()
+    cargar_conteos.clear()
+    registrar_auditoria("RECONTEO_ZONA" if reconteo else "CONTEO_ZONA", f"{zona['Zona']} · {producto.get('Producto','')} · {fisico} unidades · {observacion}", sesion["IdSesion"])
+    return True
+
+def consolidar_conteos_zona():
+    d = cargar_conteos_zona()
+    if d.empty:
+        return pd.DataFrame(columns=HEADERS_CONTEO)
+    d = d.copy()
+    d["_clave"] = d["IdSesion"].astype(str) + "|" + d["Sucursal"].astype(str).str.casefold() + "|" + _claves_df(d).astype(str).str.casefold()
+    # Un reconteo sustituye únicamente la cantidad previa de SU zona.
+    d = d.drop_duplicates(["_clave", "Zona"], keep="last")
+    filas = []
+    for (_, _), g in d.groupby(["IdSesion", "_clave"], sort=False):
+        p = g.iloc[-1]
+        fisico = float(g["StockFisico"].sum())
+        sistema = float(p["StockSistema"])
+        costo = float(p["CostoUnitario"])
+        dif = fisico - sistema
+        filas.append(dict(IdSesion=p["IdSesion"], FechaHora=p["FechaHora"], Usuario=p["Usuario"], NombreUsuario=" / ".join(sorted(set(g["NombreUsuario"].astype(str)))), CodigoBarras=p["CodigoBarras"], CodigoProducto=p["CodigoProducto"], Producto=p["Producto"], Categoria=p["Categoria"], Sucursal=p["Sucursal"], StockSistema=sistema, StockFisico=fisico, Diferencia=dif, CostoUnitario=costo, ValorFaltante=max(-dif,0)*costo, ValorSobrante=max(dif,0)*costo, CostoDiferencia=dif*costo, TipoDiferencia="FALTANTE" if dif<0 else "SOBRANTE" if dif>0 else "OK", MetodoConteo="Por zonas", Observacion=" | ".join(f"{r.Zona}: {r.StockFisico:g}" for r in g.itertuples())))
+    return normalizar_df(pd.DataFrame(filas), HEADERS_CONTEO)
+
+def guardar_zona_estado(id_sesion, zona, responsable, estado, actor):
+    ws = hoja_control(HOJA_ZONAS, HEADERS_ZONAS)
+    datos = ws.get_all_values()
+    if not datos:
+        raise ValueError("No hay datos de zonas.")
+    h = datos[0]
+    for i, r in enumerate(datos[1:], start=2):
+        if len(r)>1 and r[0] == id_sesion and r[1] == zona:
+            previo = r[h.index("Estado")] if len(r)>h.index("Estado") else ""
+            inicio = r[h.index("FechaInicio")] if len(r)>h.index("FechaInicio") else ""
+            fin = r[h.index("FechaFin")] if len(r)>h.index("FechaFin") else ""
+            valores = [id_sesion,zona,responsable,estado, inicio or (ahora() if estado=="EN PROCESO" else ""), ahora() if estado=="FINALIZADA" else ("" if previo=="FINALIZADA" else fin),actor]
+            ws.update(f"A{i}:G{i}", [valores], value_input_option="RAW")
+            cargar_zonas.clear()
+            registrar_auditoria("ESTADO_ZONA", f"{zona}: {previo} → {estado}; responsable {responsable}", id_sesion)
+            return
+    raise ValueError("Zona no encontrada.")
+
+def crear_zonas_iniciales(sesion):
+    if not zonas_sesion(sesion["IdSesion"]).empty:
+        return
+    hoja_control(HOJA_ZONAS, HEADERS_ZONAS).append_rows([[sesion["IdSesion"], z, "", "PENDIENTE", "", "", ""] for z in ZONAS_PREDETERMINADAS], value_input_option="RAW")
+    cargar_zonas.clear()
+
+def pantalla_zonas():
+    header("Zonas de inventario", "Asigna góndolas y áreas sin registrar productos previamente")
+    sesion = obtener_sesion_abierta()
+    if not sesion:
+        st.info("Abre una sesión de inventario para gestionar zonas.")
+        return
+    usuario = st.session_state.usuario
+    admin = str(usuario.get("Rol", "")).upper() == "ADMIN"
+    d = zonas_sesion(sesion["IdSesion"])
+    if d.empty:
+        st.info("Esta sesión todavía no tiene zonas configuradas. Puede seguir usándose el inventario general.")
+        if admin and st.button("Crear las 7 zonas de Tiendas Premium", type="primary"):
+            crear_zonas_iniciales(sesion)
+            st.rerun()
+        return
+    d["Conteos"] = 0
+    cz = cargar_conteos_zona()
+    cz = cz[cz["IdSesion"].astype(str) == str(sesion["IdSesion"])]
+    if not cz.empty:
+        cz = cz.drop_duplicates(["Zona", "CodigoBarras", "CodigoProducto"], keep="last")
+        d["Conteos"] = d["Zona"].map(cz.groupby("Zona").size()).fillna(0).astype(int)
+    st.dataframe(d[["Zona","Responsable","Estado","Conteos","FechaInicio","FechaFin"]], hide_index=True, use_container_width=True)
+    st.caption("Las zonas finalizadas quedan bloqueadas. El avance global se mide por productos únicos; no se inventa un porcentaje por zona.")
+    if admin:
+        with st.expander("Administrar zonas y responsables", expanded=True):
+            usuarios = cargar_usuarios()
+            nombres = [str(u) for u in usuarios["Usuario"].tolist()] if not usuarios.empty else []
+            zona = st.selectbox("Zona", d["Zona"].tolist(), key="adm_zona")
+            actual = d[d["Zona"] == zona].iloc[-1]
+            resp = st.selectbox("Responsable", [""] + nombres, index=([""]+nombres).index(actual["Responsable"]) if actual["Responsable"] in nombres else 0)
+            estado = st.selectbox("Estado", ["PENDIENTE", "EN PROCESO", "FINALIZADA"], index=["PENDIENTE", "EN PROCESO", "FINALIZADA"].index(actual["Estado"]) if actual["Estado"] in ["PENDIENTE", "EN PROCESO", "FINALIZADA"] else 0)
+            if st.button("Guardar asignación / estado", type="primary"):
+                guardar_zona_estado(sesion["IdSesion"], zona, resp, estado, usuario["Usuario"])
+                st.rerun()
+            nueva = st.text_input("Agregar otra zona (opcional)")
+            if st.button("Agregar zona") and nueva.strip():
+                if nueva.strip().casefold() in d["Zona"].astype(str).str.casefold().tolist():
+                    st.warning("La zona ya existe.")
+                else:
+                    hoja_control(HOJA_ZONAS, HEADERS_ZONAS).append_row([sesion["IdSesion"], nueva.strip(), "", "PENDIENTE", "", "", usuario["Usuario"]], value_input_option="RAW")
+                    cargar_zonas.clear()
+                    st.rerun()
+    mias = d[(d["Responsable"].astype(str).str.casefold() == str(usuario["Usuario"]).casefold()) | admin]
+    if not mias.empty:
+        st.subheader("Mis zonas")
+        zona_elegida = st.selectbox("Selecciona la zona de conteo", ["— Sin zona (inventario general) —"] + mias[mias["Estado"] != "FINALIZADA"]["Zona"].tolist())
+        if st.button("Trabajar en esta zona", type="primary"):
+            if not zona_elegida.startswith("—"):
+                rz = d[d["Zona"] == zona_elegida].iloc[-1]
+                if rz["Estado"] == "PENDIENTE":
+                    guardar_zona_estado(sesion["IdSesion"], zona_elegida, rz["Responsable"], "EN PROCESO", usuario["Usuario"])
+            st.session_state.zona_activa = "" if zona_elegida.startswith("—") else zona_elegida
+            st.session_state.producto_pendiente = None
+            st.session_state.pagina = "Inventario"
+            st.rerun()
+        zfinal = st.selectbox("Finalizar una de mis zonas", ["—"] + mias[mias["Estado"] != "FINALIZADA"]["Zona"].tolist())
+        if zfinal != "—" and st.checkbox("Confirmo que terminé de revisar esta zona") and st.button("Finalizar zona"):
+            r = d[d["Zona"] == zfinal].iloc[-1]
+            guardar_zona_estado(sesion["IdSesion"], zfinal, r["Responsable"], "FINALIZADA", usuario["Usuario"])
+            if st.session_state.get("zona_activa") == zfinal:
+                st.session_state.zona_activa = ""
+            st.rerun()
+
 def contar_productos_sesion(conteos, id_sesion):
     """Productos distintos contados en una sesión (un reconteo no suma dos veces)."""
     if conteos is None or conteos.empty:
@@ -1300,6 +1579,17 @@ def producto_ya_contado(id_sesion, codigo):
 
 
 def guardar_conteo(sesion, usuario, producto, stock_fisico, metodo="Escáner", observacion="", es_reconteo=False):
+    # Comprobación contra datos actualizados: evita guardar accidentalmente un segundo primer conteo.
+    cargar_conteos.clear()
+    anterior = ultimo_conteo_producto(sesion["IdSesion"], producto)
+    if ultimo_conteo_zona(sesion["IdSesion"], st.session_state.get("zona_activa", ""), producto) is not None or (not cargar_conteos_zona().empty and any((r["IdSesion"] == sesion["IdSesion"] and _clave_registro(r) == _clave_registro(producto)) for _, r in cargar_conteos_zona().iterrows())):
+        raise ValueError("Este producto tiene conteos por zonas. Selecciona su zona para modificar la cantidad.")
+    if anterior is not None and not es_reconteo:
+        raise ValueError("Este producto ya fue contado. Abre el flujo de reconteo para modificarlo.")
+    if anterior is None and es_reconteo:
+        raise ValueError("No existe conteo anterior para corregir.")
+    if es_reconteo and not observacion.strip():
+        raise ValueError("Debes indicar el motivo de corrección para guardar el reconteo.")
     stock_sistema = limpiar_numero(producto.get("StockSistema", 0))
     costo = limpiar_numero(producto.get("CostoUnitario", 0))
     stock_fisico = limpiar_numero(stock_fisico)
@@ -1330,7 +1620,13 @@ def guardar_conteo(sesion, usuario, producto, stock_fisico, metodo="Escáner", o
     ]
     obtener_hoja("conteos").append_row(fila, value_input_option="USER_ENTERED")
     cargar_conteos.clear()
+    if not es_reconteo and es_diferencia_critica(stock_sistema, stock_fisico, costo):
+        try:
+            solicitar_reconteo(sesion, producto, usuario, "Diferencia crítica automática")
+        except Exception:
+            registrar_auditoria("ALERTA_RECONTEO", f"Pendiente de solicitud: {producto.get('Producto', '')}", sesion["IdSesion"])
     if es_reconteo:
+        resolver_reconteo(sesion, producto, usuario, anterior.get("StockFisico", ""), stock_fisico)
         registrar_auditoria(
             "RECONTEO",
             f"{producto.get('Producto', '')} · físico {stock_fisico:,.0f} · sistema {stock_sistema:,.0f} · {tipo}",
@@ -1986,7 +2282,7 @@ def pantalla_scanner(sesion=None):
                         f"justify-content:space-between;align-items:center;'>"
                         f"<span><b>{safe_text(fila['Producto'])}</b> "
                         f"<span style='color:#6b7280;font-size:.78rem'>({safe_text(fila['FechaHora'])})</span></span>"
-                        f"{badge(fila['TipoDiferencia'])}</div>",
+                        f"{'' if conteo_ciego_usuario(st.session_state.usuario) else badge(fila['TipoDiferencia'])}</div>",
                         unsafe_allow_html=True,
                     )
 
@@ -1996,18 +2292,35 @@ def pantalla_scanner(sesion=None):
 
 def pantalla_producto(producto, sesion):
     codigo = limpiar_codigo(producto.get("CodigoBarras", "")) or limpiar_codigo(producto.get("CodigoProducto", "")) or str(producto.get("Producto", ""))
-    ya_contado = ultimo_conteo_producto(sesion["IdSesion"], producto) is not None
+    zona = st.session_state.get("zona_activa", "")
+    zona_habilitada = zona_usuario(sesion, st.session_state.usuario) if zona else None
+    if zona and zona_habilitada is None:
+        st.error("La zona seleccionada está finalizada o no te corresponde. Ve a Zonas.")
+        return
+    previo_zona = ultimo_conteo_zona(sesion["IdSesion"], zona, producto) if zona_habilitada else None
+    ya_contado = (previo_zona is not None) if zona_habilitada else (ultimo_conteo_producto(sesion["IdSesion"], producto) is not None)
     # El reconteo solo aplica a productos ya contados (evita etiquetar mal si la bandera quedó activa).
     es_reconteo = bool(st.session_state.get("reconteo_activo", False)) and ya_contado
-    previo = ultimo_conteo_producto(sesion["IdSesion"], producto)
+    previo = previo_zona if zona_habilitada else ultimo_conteo_producto(sesion["IdSesion"], producto)
 
+    if zona_habilitada:
+        st.info(f"📍 Conteo en: **{zona}** · Las cantidades de distintas zonas se sumarán.")
     if ya_contado and not es_reconteo:
         st.warning("⚠️ Este producto ya fue contado en esta sesión.")
-        if previo:
+        if previo and not conteo_ciego_usuario(st.session_state.usuario):
             st.info(
                 f"Último conteo: {limpiar_numero(previo.get('StockFisico', 0)):,.0f} unidades "
                 f"por {previo.get('NombreUsuario', '')} · {previo.get('FechaHora', '')}."
             )
+        critico = es_diferencia_critica(previo.get("StockSistema", 0), previo.get("StockFisico", 0), previo.get("CostoUnitario", 0)) if previo else False
+        if critico and not conteo_ciego_usuario(st.session_state.usuario):
+            st.error("Diferencia significativa: se recomienda reconteo independiente.")
+            if not solicitud_pendiente(sesion["IdSesion"], producto):
+                if st.button("Solicitar reconteo por diferencia", key=f"solicitud_{codigo}"):
+                    solicitar_reconteo(sesion, producto, st.session_state.usuario, "Diferencia crítica detectada")
+                    st.rerun()
+            else:
+                st.warning("Reconteo pendiente de resolución.")
         c_re, c_back = st.columns(2)
         with c_re:
             if st.button("🔁 Hacer reconteo", type="primary", use_container_width=True):
@@ -2022,7 +2335,7 @@ def pantalla_producto(producto, sesion):
 
     if es_reconteo:
         header("Reconteo físico", "Verifica nuevamente la cantidad: el último conteo será reemplazado en los resultados")
-        if previo:
+        if previo and not conteo_ciego_usuario(st.session_state.usuario):
             st.info(
                 f"Conteo anterior: {limpiar_numero(previo.get('StockFisico', 0)):,.0f} unidades "
                 f"por {previo.get('NombreUsuario', '')} · {previo.get('FechaHora', '')}. "
@@ -2041,7 +2354,7 @@ def pantalla_producto(producto, sesion):
         unsafe_allow_html=True,
     )
 
-    ciego = CONTEO_CIEGO and str(st.session_state.usuario.get("Rol", "")).upper() != "ADMIN"
+    ciego = conteo_ciego_usuario(st.session_state.usuario)
     stock_txt = "🔒 Oculto" if ciego else f"{limpiar_numero(producto.get('StockSistema',0)):,.0f}"
     c1, c2, c3 = st.columns(3)
     with c1:
@@ -2062,23 +2375,25 @@ def pantalla_producto(producto, sesion):
     diferencia = fisico - limpiar_numero(producto.get("StockSistema", 0))
     costo = limpiar_numero(producto.get("CostoUnitario", 0))
 
+    if zona_habilitada:
+        st.caption("El faltante o sobrante se calcula al consolidar todas las zonas; aquí registras solo lo encontrado en esta zona.")
     if diferencia < 0:
         tipo = "FALTANTE"
-        if not ciego:
+        if not ciego and not zona_habilitada:
             st.error(f"🔴 Faltante: {abs(diferencia):,.0f} unidades · {formato_soles(abs(diferencia) * costo)}")
     elif diferencia > 0:
         tipo = "SOBRANTE"
-        if not ciego:
+        if not ciego and not zona_habilitada:
             st.success(f"🟢 Sobrante: {diferencia:,.0f} unidades · {formato_soles(diferencia * costo)}")
     else:
         tipo = "OK"
-        if not ciego:
+        if not ciego and not zona_habilitada:
             st.success("🟢 Stock exacto: no existe diferencia.")
     if ciego:
         st.info("🔒 Conteo ciego: el resultado se calculará al guardar.")
 
     confirmado = True
-    if es_diferencia_critica(producto.get("StockSistema", 0), fisico, costo):
+    if not ciego and not zona_habilitada and es_diferencia_critica(producto.get("StockSistema", 0), fisico, costo):
         st.warning(
             "⚠️ La cantidad difiere de forma significativa del sistema. Revisa estantes, almacén y otras "
             "ubicaciones, y verifica que el producto sea el correcto antes de guardar."
@@ -2105,10 +2420,16 @@ def pantalla_producto(producto, sesion):
                     st.error(str(exc))
     c1, c2 = st.columns(2)
     with c1:
-        if st.button("💾 Guardar conteo", type="primary", use_container_width=True, disabled=not (confirmado and verificacion)):
+        motivo_valido = (not es_reconteo) or bool(observacion.strip())
+        if es_reconteo and not motivo_valido:
+            st.caption("El motivo de corrección es obligatorio para un reconteo.")
+        if st.button("💾 Guardar conteo", type="primary", use_container_width=True, disabled=not (confirmado and verificacion and motivo_valido)):
             try:
-                guardar_conteo(sesion, st.session_state.usuario, producto, fisico, metodo, observacion, es_reconteo=es_reconteo)
-                st.success(f"{'Reconteo' if es_reconteo else 'Conteo'} guardado: {tipo}")
+                if zona_habilitada:
+                    guardar_conteo_zona(sesion, st.session_state.usuario, producto, fisico, metodo, observacion, es_reconteo)
+                else:
+                    guardar_conteo(sesion, st.session_state.usuario, producto, fisico, metodo, observacion, es_reconteo)
+                st.success("Cantidad guardada en la zona." if zona_habilitada else (f"{'Reconteo' if es_reconteo else 'Conteo'} guardado correctamente" if ciego else f"{'Reconteo' if es_reconteo else 'Conteo'} guardado: {tipo}"))
                 sonido_confirmacion()
                 st.session_state.reconteo_activo = False
                 st.session_state.producto_pendiente = None
@@ -2116,7 +2437,10 @@ def pantalla_producto(producto, sesion):
                 st.session_state.ultimo_codigo_scan = ""
                 st.rerun()
             except Exception as exc:
-                mostrar_error_google(exc, "guardar conteo")
+                if isinstance(exc, ValueError):
+                    st.error(str(exc))
+                else:
+                    mostrar_error_google(exc, "guardar conteo")
     with c2:
         if st.button("↩️ Cancelar", use_container_width=True):
             st.session_state.reconteo_activo = False
@@ -2155,7 +2479,7 @@ def pantalla_busqueda(sesion):
             codigo = limpiar_codigo(producto.get("CodigoBarras", ""))
             nombre = str(producto.get("Producto", "Sin nombre"))
             st.markdown(
-                f"<div class='card'><b>{safe_text(nombre)}</b><br><span style='color:#6b7280;font-size:.8rem'>Código: {safe_text(producto.get('CodigoProducto',''))} · Barras: {safe_text(codigo)} · Stock: {limpiar_numero(producto.get('StockSistema',0)):,.0f}</span></div>",
+                f"<div class='card'><b>{safe_text(nombre)}</b><br><span style='color:#6b7280;font-size:.8rem'>Código: {safe_text(producto.get('CodigoProducto',''))} · Barras: {safe_text(codigo)} · Stock: {"Oculto" if conteo_ciego_usuario(st.session_state.usuario) else f"{limpiar_numero(producto.get('StockSistema',0)):,.0f}"}</span></div>",
                 unsafe_allow_html=True,
             )
             if st.button("Seleccionar", key=f"sel_prod_{idx}_{codigo}", use_container_width=True):
@@ -2303,16 +2627,36 @@ def pantalla_inventario():
             st.rerun()
         return
 
-    conteos = cargar_conteos()
-    contados = contar_productos_sesion(conteos, sesion["IdSesion"])
-    total = len(inventario_de_sucursal(cargar_inventario(), sesion["Sucursal"]))
-    porcentaje = (contados / total * 100) if total else 0
+    zona_actual = st.session_state.get("zona_activa", "")
+    if zona_actual:
+        st.info(f"📍 Zona activa: **{zona_actual}**")
+        if st.button("Cambiar de zona"):
+            st.session_state.pagina = "Zonas"
+            st.rerun()
+    elif not zonas_sesion(sesion["IdSesion"]).empty:
+        st.warning("Estás en modo general (sin zona). Para registrar cantidades por góndola, selecciona una zona en el menú Zonas.")
+    m = metricas_cobertura(sesion["IdSesion"], sesion["Sucursal"])
+    contados, total, porcentaje = m["contados"], m["total"], m["cobertura"]
 
     st.markdown(
         f"<div class='mobile-note'>🧾 <b>{safe_text(sesion['NombreSesion'])}</b> · {safe_text(sesion['Sucursal'])} · {contados:,}/{total:,} productos · {porcentaje:.1f}%</div>",
         unsafe_allow_html=True,
     )
     st.progress(min(porcentaje / 100, 1.0))
+    with st.expander("⭐ Prioridad: pendientes del inventario anterior"):
+        try:
+            previos = pendientes_anteriores(sesion)
+            if previos.empty:
+                st.info("No hay pendientes históricos aplicables, o ya fueron verificados.")
+            else:
+                st.caption(f"{len(previos)} productos pendientes del inventario anterior, aún sin verificar en esta sesión.")
+                columnas_prioridad = ["Producto", "CodigoProducto", "CodigoBarras", "Categoria", "EstadoVerificacion"]
+                if not conteo_ciego_usuario(st.session_state.usuario):
+                    columnas_prioridad.insert(4, "StockSistema")
+                st.dataframe(previos[columnas_prioridad], hide_index=True, use_container_width=True)
+                st.download_button("Descargar prioridades (Excel)", data=exportar_excel({"Prioridad":previos[columnas_prioridad]}), file_name=f"prioridades_{sesion['IdSesion']}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        except Exception as exc:
+            st.warning(f"No fue posible cargar las prioridades históricas: {exc}")
 
     if st.session_state.get("producto_pendiente"):
         pantalla_producto(st.session_state.producto_pendiente, sesion)
@@ -2782,6 +3126,23 @@ def pantalla_admin():
     tab1, tab2, tab3, tab4 = st.tabs(["👤 Usuarios", "📦 Inventario", "🧾 Sesiones", "🛡️ Auditoría"])
 
     with tab1:
+        st.markdown("### Conteo ciego por usuario")
+        st.caption("Los contadores configurados no verán stock de sistema, diferencia ni conteos anteriores durante la captura. Los administradores conservan acceso de supervisión.")
+        usuarios_cfg = cargar_usuarios()
+        if not usuarios_cfg.empty:
+            candidatos = usuarios_cfg[usuarios_cfg["Rol"].astype(str).str.upper() != "ADMIN"]["Usuario"].astype(str).tolist()
+            if candidatos:
+                seleccionado_cfg = st.selectbox("Contador", candidatos, key="cfg_contador")
+                actual_cfg = conteo_ciego_usuario({"Usuario":seleccionado_cfg,"Rol":"CONTADOR"})
+                habilitar_cfg = st.checkbox("Habilitar conteo ciego", value=actual_cfg, key=f"cfg_ciego_{seleccionado_cfg}")
+                if st.button("Guardar configuración de conteo ciego"):
+                    try:
+                        configurar_conteo_ciego(seleccionado_cfg, habilitar_cfg, st.session_state.usuario.get("Usuario", ""))
+                        st.success("Configuración guardada.")
+                        st.rerun()
+                    except Exception as exc:
+                        st.error(str(exc))
+        st.divider()
         usuarios = cargar_usuarios()
         if usuarios.empty:
             st.info("No existen usuarios.")
@@ -2845,6 +3206,13 @@ def pantalla_admin():
                     st.caption("Instala `openpyxl` para exportar a Excel.")
 
     with tab3:
+        st.markdown("### Solicitudes de reconteo")
+        solicitudes = cargar_control_reconteos()
+        if solicitudes.empty:
+            st.caption("Sin solicitudes de reconteo registradas.")
+        else:
+            st.dataframe(solicitudes.sort_values("FechaSolicitud", ascending=False), hide_index=True, use_container_width=True)
+        st.divider()
         sesiones = cargar_sesiones()
         if sesiones.empty:
             st.info("No existen sesiones.")
@@ -2907,7 +3275,7 @@ def sidebar():
         </div>
     """, unsafe_allow_html=True)
 
-    opciones = ["Inicio", "Precios", "Sesión", "Inventario", "Resultados", "Análisis"]
+    opciones = ["Inicio", "Precios", "Sesión", "Zonas", "Inventario", "Resultados", "Análisis"]
     if rol == "ADMIN":
         opciones.append("Administración")
 
@@ -2935,7 +3303,7 @@ def sidebar():
 
     st.sidebar.markdown('<div class="btn-logout">', unsafe_allow_html=True)
     if st.sidebar.button("Cerrar Sesión", use_container_width=True, key="sb_cerrar_sesion"):
-        for key in ["autenticado", "usuario", "pagina", "nav_menu", "reconteo_activo", "sesion_actual", "codigo_pendiente", "producto_pendiente", "modo_inventario", "ultimo_codigo_scan", "precio_producto", "precio_modo", "precio_ultimo_codigo_scan"]:
+        for key in ["autenticado", "usuario", "pagina", "nav_menu", "reconteo_activo", "sesion_actual", "codigo_pendiente", "producto_pendiente", "modo_inventario", "ultimo_codigo_scan", "zona_activa", "precio_producto", "precio_modo", "precio_ultimo_codigo_scan"]:
             st.session_state.pop(key, None)
         st.rerun()
     st.sidebar.markdown('</div>', unsafe_allow_html=True)
@@ -3000,6 +3368,8 @@ try:
         pantalla_precios()
     elif pagina == "Sesión":
         pantalla_sesion()
+    elif pagina == "Zonas":
+        pantalla_zonas()
     elif pagina == "Inventario":
         pantalla_inventario()
     elif pagina == "Resultados":
