@@ -1,0 +1,66 @@
+{
+  "nombre": "Tiendas Premium",
+  "razon_social": "Tiendas Premium E.I.R.L.",
+  "id_fiscal_etiqueta": "RUC",
+  "id_fiscal": "20612107786",
+  "desarrollado_por": "Humberto Atoche Obeso",
+  "app_titulo": "Inventario",
+  "sistema_subtitulo": "Sistema de inventario",
+  "color_primario": "#EC3237",
+  "logo_ruta": "assets/logo (2).png",
+  "favicon_ruta": "assets/logo (3).png",
+  "login_titulo": "Tu inventario y tus compras,",
+  "login_titulo_resaltado": "en un solo lugar.",
+  "login_subtitulo": "Control de existencias, conteos y compras de Tiendas Premium, con información clara y al instante.",
+  "frases": [
+    "Un inventario preciso ayuda a tomar mejores decisiones.",
+    "Lo que se cuenta bien hoy, se vende mejor mañana.",
+    "Comprar con información es cuidar el capital de la tienda.",
+    "Un equipo organizado logra mejores resultados.",
+    "Cada producto en su lugar es una venta que no se pierde.",
+    "Contar con cuidado es la mejor forma de evitar sorpresas."
+  ],
+  "enlaces": [
+    {
+      "nombre": "Negosy",
+      "detalle": "Sistema de ventas",
+      "url": "https://app.negosy.com/accounts/login/"
+    }
+  ],
+  "moneda_simbolo": "S/",
+  "moneda_codigo": "PEN",
+  "moneda_decimales": 2,
+  "zona_horaria": "America/Lima",
+  "locale": "es-PE",
+  "sucursales": [
+    "Principal"
+  ],
+  "zonas": [
+    "Góndola Pared Derecha",
+    "Góndola Central 1",
+    "Góndola Central 2",
+    "Máquinas de Frío y Bebidas",
+    "Mostrador",
+    "Góndola de Snacks",
+    "Bolsas de Regalo"
+  ],
+  "meta_exactitud": 98.0,
+  "umbral_dif_monto": 200.0,
+  "umbral_dif_unidades": 10,
+  "umbral_dif_pct": 30.0,
+  "conteo_ciego": false,
+  "horas_sesion_alerta": 24,
+  "max_intentos_login": 5,
+  "bloqueo_login_seg": 300,
+  "sesion_max_horas": 10,
+  "inactividad_min": 30,
+  "modulos": {
+    "movimientos": true,
+    "lotes": false,
+    "ordenes_compra": true,
+    "importador": true
+  },
+  "datos_backend": "sheets",
+  "datos_hoja_nombre": "BD_Inventario_PremiumMarket",
+  "datos_credenciales": "gcp_service_account"
+}
