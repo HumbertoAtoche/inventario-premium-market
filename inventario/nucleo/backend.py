@@ -13,6 +13,7 @@ Así se cambia de Sheets a Postgres/Supabase tocando solo la configuración, no 
 import json
 import re
 import threading
+import time
 
 _A1 = re.compile(r"^([A-Za-z]+)(\d+)(?::([A-Za-z]+)(\d+))?$")
 
@@ -176,29 +177,99 @@ class TablaSql(TablaBase):
                                 (self.nombre, n, json.dumps(f, ensure_ascii=False)))
 
 
+_dormir = time.sleep
+
+
+def _reintentar(fn, intentos=4):
+    """Google Sheets responde 429 al pasar de ~60 lecturas/minuto: se espera y se reintenta (2, 4 y 8 s)."""
+    for i in range(intentos):
+        try:
+            return fn()
+        except Exception as exc:
+            t = str(exc)
+            if ("429" in t or "Quota exceeded" in t) and i < intentos - 1:
+                _dormir(2 ** (i + 1))
+                continue
+            raise
+
+
 class HojaSheets:
-    """Envuelve una hoja de gspread. Todo pasa directo; `update` acepta ambos órdenes de argumentos
-    (gspread 5 y 6) y se agregan dos utilidades."""
+    """Envuelve una hoja de gspread con tres mejoras:
+      * caché de lectura de 20 s (invalidada por cualquier escritura): una pantalla que lee la misma
+        hoja varias veces gasta UNA lectura de la cuota, no varias;
+      * reintento automático ante el error 429 (cuota);
+      * `update` acepta ambos órdenes de argumentos (gspread 5 y 6)."""
+    TTL = 20
 
     def __init__(self, ws):
         self._ws = ws
+        self._vals, self._ts = None, 0.0
+        self._lock = threading.RLock()
 
     def __getattr__(self, k):
         return getattr(self._ws, k)
 
-    def update(self, rng, values, **kw):
+    def _leer(self):
+        with self._lock:
+            if self._vals is None or time.time() - self._ts > self.TTL:
+                self._vals = _reintentar(self._ws.get_all_values)
+                self._ts = time.time()
+            return self._vals
+
+    def _invalidar(self):
+        with self._lock:
+            self._vals = None
+
+    # ----- lecturas (desde la caché) -----
+    def get_all_values(self):
+        return [list(r) for r in self._leer()]
+
+    def get_all_records(self):
+        g = self._leer()
+        if not g:
+            return []
+        head = [str(h) for h in g[0]]
+        return [{h: numericizar(v) for h, v in zip(head, list(r) + [""] * (len(head) - len(r)))} for r in g[1:]]
+
+    def row_values(self, n):
+        g = self._leer()
+        return list(g[n - 1]) if 0 < n <= len(g) else []
+
+    # ----- escrituras (invalidan la caché) -----
+    def _escribir(self, fn):
         try:
-            return self._ws.update(range_name=rng, values=values, **kw)
-        except TypeError:
-            return self._ws.update(rng, values, **kw)
+            return _reintentar(fn)
+        finally:
+            self._invalidar()
+
+    def append_row(self, values, value_input_option=None, **kw):
+        extra = {"value_input_option": value_input_option} if value_input_option else {}
+        return self._escribir(lambda: self._ws.append_row(list(values), **extra, **kw))
+
+    def append_rows(self, rows, value_input_option=None, **kw):
+        extra = {"value_input_option": value_input_option} if value_input_option else {}
+        return self._escribir(lambda: self._ws.append_rows([list(r) for r in rows], **extra, **kw))
+
+    def update_cell(self, row, col, value):
+        return self._escribir(lambda: self._ws.update_cell(row, col, value))
+
+    def update(self, rng, values, **kw):
+        def _u():
+            try:
+                return self._ws.update(range_name=rng, values=values, **kw)
+            except TypeError:
+                return self._ws.update(rng, values, **kw)
+        return self._escribir(_u)
 
     def reemplazar_todo(self, valores):
-        self._ws.clear()
-        self._ws.update(range_name="A1", values=[[_s(v) for v in r] for r in valores], value_input_option="RAW")
+        def _r():
+            self._ws.clear()
+            self._ws.update(range_name="A1", values=[[_s(v) for v in r] for r in valores], value_input_option="RAW")
+        return self._escribir(_r)
 
     def asegurar_columnas(self, n):
         if self._ws.col_count < n:
-            self._ws.add_cols(n - self._ws.col_count)
+            self._escribir(lambda: self._ws.add_cols(n - self._ws.col_count))
 
 
 # ======================= Backends =======================
@@ -215,17 +286,20 @@ class Backend:
     def existe(self, nombre):
         raise NotImplementedError
 
+    def _cabecera_actual(self, nombre, t):
+        return t.row_values(1)
+
     def tabla(self, nombre, headers=None, crear=True):
         t = self._obtener(nombre, headers, crear)
         if headers and nombre not in self._verificadas:
             with self._cerrojo:
-                self._asegurar_encabezado(t, list(headers))
+                self._asegurar_encabezado(t, list(headers), self._cabecera_actual(nombre, t))
                 self._verificadas.add(nombre)
         return t
 
     @staticmethod
-    def _asegurar_encabezado(t, headers):
-        actual = [str(x).strip() for x in t.row_values(1)]
+    def _asegurar_encabezado(t, headers, actual_crudo):
+        actual = [str(x).strip() for x in actual_crudo]
         if not any(actual):
             t.asegurar_columnas(len(headers))
             t.update("A1", [headers], value_input_option="RAW")
@@ -309,26 +383,47 @@ class BackendSql(Backend):
 
 
 class BackendSheets(Backend):
+    """Google Sheets cuidando la cuota (60 lecturas/min): todas las cabeceras se leen en UNA llamada,
+    las tablas nuevas se crean sin leerlas y cada hoja se comparte (con su caché) entre sesiones."""
     nombre = "sheets"
 
     def __init__(self, libro):
         super().__init__()
         self.libro = libro
         self._hojas = None
+        self._tablas = {}
+        self._cab = {}
 
     def _cargar(self):
-        if self._hojas is None:                       # una sola llamada a la API, no una por hoja
-            self._hojas = {ws.title: ws for ws in self.libro.worksheets()}
+        if self._hojas is None:
+            self._hojas = {ws.title: ws for ws in _reintentar(self.libro.worksheets)}
+            try:                                        # cabeceras de TODAS las hojas en una sola llamada
+                titulos = list(self._hojas)
+                res = _reintentar(lambda: self.libro.values_batch_get(["'" + t.replace("'", "''") + "'!1:1" for t in titulos]))
+                for t, vr in zip(titulos, res.get("valueRanges", [])):
+                    v = vr.get("values") or [[]]
+                    self._cab[t] = v[0]
+            except Exception:
+                self._cab = {}                          # si falla, se leerá hoja por hoja (más lento, pero funciona)
 
     def _obtener(self, nombre, headers, crear):
         self._cargar()
+        if nombre in self._tablas:
+            return self._tablas[nombre]
         ws = self._hojas.get(nombre)
         if ws is None:
             if not crear:
                 raise KeyError(nombre)
-            ws = self.libro.add_worksheet(title=nombre, rows=2000, cols=max(len(headers or []), 8))
+            ws = _reintentar(lambda: self.libro.add_worksheet(title=nombre, rows=2000, cols=max(len(headers or []), 8)))
             self._hojas[nombre] = ws
-        return HojaSheets(ws)
+            self._cab[nombre] = []                      # hoja recién creada: está vacía, no hace falta leerla
+        self._tablas[nombre] = HojaSheets(ws)
+        return self._tablas[nombre]
+
+    def _cabecera_actual(self, nombre, t):
+        if nombre in self._cab:
+            return self._cab.pop(nombre)                # sin llamada a la API
+        return t.row_values(1)
 
     def existe(self, nombre):
         self._cargar()
