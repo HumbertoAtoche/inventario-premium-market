@@ -1,0 +1,19 @@
+{
+  "nombre": "Mi Empresa",
+  "razon_social": "Mi Empresa S.A.",
+  "id_fiscal_etiqueta": "RUC",
+  "id_fiscal": "",
+  "color_primario": "#2563EB",
+  "moneda_simbolo": "$",
+  "moneda_codigo": "USD",
+  "zona_horaria": "America/Bogota",
+  "locale": "es-CO",
+  "sucursales": [
+    "Principal"
+  ],
+  "zonas": [
+    "General"
+  ],
+  "datos_backend": "sql",
+  "datos_sql_url": "sqlite:///datos/mi_empresa.db"
+}
